@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@font-face {
+  font-family: "Gotham-Office";
+  src: url("/src/assets/GothamOffice-Regular.otf");
+}
