@@ -25,7 +25,7 @@ export default function BuildingOverlay() {
   // ⚡ WEBSOCKET CONNECTION & REAL-TIME UPDATES
   useEffect(() => {
     // Initialize WebSocket connection
-    const socket = io('http://localhost:4000', {
+    const socket = io('https://inventory-page-x73n.onrender.com/', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
     });
@@ -75,7 +75,7 @@ export default function BuildingOverlay() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch("http://localhost:4000/api/floors");
+      const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors");
       const data = await response.json();
       
       if (data.success && Array.isArray(data.data)) {
@@ -99,7 +99,7 @@ export default function BuildingOverlay() {
     try {
       setUpdateStatus('🔄 Refreshing...');
       
-      const response = await fetch("http://localhost:4000/api/floors/refresh", {
+      const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors/refresh", {
         method: "POST"
       });
       
