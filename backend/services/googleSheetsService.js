@@ -10,18 +10,28 @@ class GoogleSheetsService {
   }
 
   async initialize() {
-    try {
+     try {
       if (this.initialized) return;
 
       console.log('🔧 Initializing Google Sheets service...');
       
-      const keyPath = path.resolve(process.env.SERVICE_ACCOUNT_PATH);
+      // ✅ Check both locations for the service account key
+      let credentials;
       
-      if (!fs.existsSync(keyPath)) {
-        throw new Error(`Service account key file not found at: ${keyPath}`);
+      // First try the secret file location (production)
+      const secretPath = '/etc/secrets/service-account-key.json';
+      const localPath = path.resolve('./service-account-key.json');
+      
+      if (fs.existsSync(secretPath)) {
+        console.log('📄 Using secret file from Render');
+        credentials = JSON.parse(fs.readFileSync(secretPath, 'utf8'));
+      } else if (fs.existsSync(localPath)) {
+        console.log('📄 Using local service account file');
+        credentials = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      } else {
+        throw new Error('Service account key file not found in secret files or local directory');
       }
 
-      const credentials = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
       console.log('🔑 Service account email:', credentials.client_email);
 
       const auth = new google.auth.GoogleAuth({
