@@ -280,22 +280,22 @@ export default function BuildingOverlay() {
 
   // UI
   return (
-    <div className="fixed inset-0 w-auto h-auto overflow-x-hidden bg-gray-100">
+    <div className="fixed inset-0 w-auto h-auto overflow-x-hidden bg-[#dedbd4]">
       {/* Main Building Container */}
       <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
         <svg
           ref={svgRef}
-          viewBox="0 0 383.07562 210.92149"
+          viewBox="0 0 377 210.92149"
           xmlns="http://www.w3.org/2000/svg"
           className="max-w-full max-h-full"
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Background image */}
           <image
-            href="/building.svg"
+            href="/building2.svg"
             x="0"
             y="0"
-            width="383.07562"
+            width="381.7"
             height="210.92149"
             preserveAspectRatio="xMidYMid meet"
           />
