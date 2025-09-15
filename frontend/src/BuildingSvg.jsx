@@ -11,81 +11,98 @@ export default function BuildingOverlay() {
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [updateStatus, setUpdateStatus] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
-  
-  // ... other existing state
+
+  // Existing state
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [cardPosition, setCardPosition] = useState({ x: 0, y: 0 });
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showFloorPlans, setShowFloorPlans] = useState(false);
-  const [floorPlanModal, setFloorPlanModal] = useState(null);
-  
+  const [floorPlanModal, setFloorPlanModal] = useState(null); // floor modal data
+
+  // NEW: highlight plan modal data (Option A: reuse FloorPlanModal with highlight prop)
+  const [highlightPlanModal, setHighlightPlanModal] = useState(null); // { id, name, planImages: [] }
+
+  // NEW: Highlight state
+  const [activeHighlight, setActiveHighlight] = useState(null); // 'wardrobe', 'terrace', 'skyclub', 'floorPlan', 'unit'
+
   const svgRef = useRef(null);
   const socketRef = useRef(null);
 
-  // ⚡ WEBSOCKET CONNECTION & REAL-TIME UPDATES
+  // NEW: Highlight Areas with plan images
+  const HIGHLIGHT_AREAS = {
+    wardrobe: {
+      name: "Wardrobe Areas",
+      color: "#8a5cf6b1",
+      d: "m 90.723317,145.66639 12.821743,-1.69155 c 0,0 -1.715,0.13584 0.017,0 1.73197,-0.13584 4.87331,0.0509 4.87331,0.0509 l 1.73197,0.20376 0.71317,0.0849 0.62827,0.1698 0.62826,0.22075 0.44149,0.18678 0.32262,0.1698 0.39054,0.28866 0.22074,0.23773 0.0679,0.1698 0.0679,0.27168 0.017,0.37357 0.017,6.77508 c 0,0 0.47544,-0.0849 -0.66223,-0.40752 -1.13767,-0.32263 -3.15831,-0.57733 -3.15831,-0.57733 l -1.17163,-0.11886 -0.96787,-0.034 -5.04311,0.017 -1.25653,0.0509 -0.98485,0.0679 -11.138989,1.20559 0.0849,-7.02979 z",
+      targetFloors: [],
+      planImages: [
+        "/floor-plans/club1.jpg",
+        "/floor-plans/club2.jpg"
+      ]
+    },
+    terrace: {
+      name: "Terrace Areas",
+      color: "#10b981be",
+      d: "m 89.378556,154.11918 -0.240136,32.22622 24.78202,0.19211 0.048,-32.99466 c 0,0 1.36877,0.69639 -0.1681,-0.048 -1.53687,-0.74442 -3.45796,-1.10462 -3.45796,-1.10462 l -3.26584,-0.21612 -4.03429,0.12006 -13.807805,1.29674 z",
+      targetFloors: [],
+      planImages: [
+        "/floor-plans/parking1.jpg",
+        "/floor-plans/parking2.jpg",
+        "/floor-plans/parking3.jpg",
+        "/floor-plans/parking4.jpg",
+        "/floor-plans/parking5.jpg",
+      ]
+    },
+    skyclub: {
+      name: "Sky Club Area",
+      color: "#87ceeb",
+      d: "m 89.426583,37.749353 13.159447,-5.859315 c 0,0 -2.20925,0.480272 0,0 2.20925,-0.480271 3.74612,-0.288163 3.74612,-0.288163 0,0 -1.87306,-0.288163 0.14408,0.09605 2.01714,0.384217 3.07374,1.00857 3.07374,1.00857 0,0 -1.34476,-0.864489 0.14408,0.04803 1.48884,0.912516 3.65006,3.794146 3.65006,3.794146 L 113.152,36.020375 c 0,0 -0.76843,1.440815 0,0 0.76844,-1.440815 0.81647,-5.379043 0.81647,-5.379043 0,0 0.33619,1.200679 0,0 -0.3362,-1.200679 -0.96055,-2.737549 -0.96055,-2.737549 0,0 0.38422,-0.144081 -0.91251,-1.68095 -1.29674,-1.536869 -3.1698,-2.641494 -3.1698,-2.641494 l -1.777,-0.768435 -1.44082,-0.144081 -1.15265,0.09605 -0.91252,-0.04803 -0.48027,0.09605 -1.20068,0.528299 -11.862706,5.523124 c 0,0 0.240135,-0.624353 -0.720408,1.056598 -0.960543,1.680951 -0.09605,1.921086 -0.09605,1.921086 0,0 -1.056598,-0.576326 -0.192113,0.33619 0.864489,0.912516 1.536869,0.576326 1.440815,0.912516 -0.09605,0.336191 -0.720407,0.336191 -0.144077,1.440816 0.576326,1.104625 -0.816463,1.728978 -0.816463,1.728978",
+      targetFloors: [],
+      planImages: [
+        "/floor-plans/skyclub.jpg",
+      ]
+    }
+  };
+
+  // WebSocket & data
   useEffect(() => {
-    // Initialize WebSocket connection
-    const socket = io('https://inventory-page-x73n.onrender.com/', {
+    const socket = io('https://inventory-page-x73n.onrender.com', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
     });
-    
+
     socketRef.current = socket;
 
-    // Connection status handlers
-    socket.on('connect', () => {
-      console.log('⚡ Connected to WebSocket server');
-      setConnectionStatus('Connected');
-    });
-
-    socket.on('disconnect', () => {
-      console.log('⚡ Disconnected from WebSocket server');
-      setConnectionStatus('Disconnected');
-    });
-
+    socket.on('connect', () => setConnectionStatus('Connected'));
+    socket.on('disconnect', () => setConnectionStatus('Disconnected'));
     socket.on('connect_error', (error) => {
-      console.error('⚡ WebSocket connection error:', error);
+      console.error('WebSocket connection error:', error);
       setConnectionStatus('Connection Error');
     });
 
-    // ⚡ REAL-TIME DATA UPDATES
     socket.on('floorsUpdated', (update) => {
-      console.log('🔥 Real-time update received:', update);
-      
       setFloors(update.data);
       setLastUpdate(new Date().toLocaleTimeString());
-      setUpdateStatus(`✅ Updated from ${update.source} (${update.count} floors)`);
-      
-      // Clear status after 3 seconds
+      setUpdateStatus(`Updated from ${update.source} (${update.count} floors)`);
       setTimeout(() => setUpdateStatus(''), 3000);
     });
 
-    // Initial data fetch
     fetchInitialFloors();
-
-    // Cleanup on unmount
-    return () => {
-      socket.disconnect();
-    };
+    return () => { socket.disconnect(); };
   }, []);
 
-  // Initial data fetch
   const fetchInitialFloors = async () => {
     try {
       setLoading(true);
       setError(null);
-      
       const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors");
       const data = await response.json();
-      
       if (data.success && Array.isArray(data.data)) {
         setFloors(data.data);
         setLastUpdate(new Date().toLocaleTimeString());
-        console.log(`✅ Initial load: ${data.count} floors from ${data.source}`);
       } else {
         throw new Error(data.error || 'Failed to load floors');
       }
-      
     } catch (err) {
       console.error("Error fetching initial floors:", err);
       setError(err.message);
@@ -94,41 +111,23 @@ export default function BuildingOverlay() {
     }
   };
 
-  // Manual refresh function
   const handleManualRefresh = async () => {
     try {
-      setUpdateStatus('🔄 Refreshing...');
-      
-      const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors/refresh", {
-        method: "POST"
-      });
-      
+      setUpdateStatus('Refreshing...');
+      const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors/refresh", { method: "POST" });
       const result = await response.json();
-      
-      if (result.success) {
-        setUpdateStatus(`✅ Refreshed! Notified ${result.clientsNotified} clients`);
-        console.log('Manual refresh completed');
-      } else {
-        setUpdateStatus('❌ Refresh failed');
-      }
-      
+      setUpdateStatus(result.success ? `Refreshed! Notified ${result.clientsNotified} clients` : 'Refresh failed');
     } catch (error) {
       console.error("Manual refresh error:", error);
-      setUpdateStatus('❌ Refresh failed');
+      setUpdateStatus('Refresh failed');
     }
-    
-    // Clear status after 3 seconds
     setTimeout(() => setUpdateStatus(''), 3000);
   };
 
-  // ... existing handler functions (handleFloorMouseEnter, etc.)
+  // Handlers
   const handleFloorMouseEnter = (floor, event) => {
-    const svgRect = svgRef.current.getBoundingClientRect();
-    const bbox = event.target.getBBox();
     setSelectedFloor(floor);
-    const x = svgRect.width * 0.8;
-    const y = bbox.y + bbox.height / 2;
-    setCardPosition({ x, y });
+    setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
     event.target.style.fill = "rgba(139, 108, 92, 0.5)";
   };
 
@@ -138,58 +137,111 @@ export default function BuildingOverlay() {
   };
 
   const handleFloorClick = (floor, event) => {
-    if (showFloorPlans && floor.info["floor-plan"]) {
+    if (showFloorPlans && floor.info["has-floor-plan"]) {
       setFloorPlanModal(floor);
     }
   };
 
+  // Navbar selection
   const handleNavbarSelect = (type, value) => {
     if (type === "unit") {
       const newSelectedUnit = value === selectedUnit ? null : value;
       setSelectedUnit(newSelectedUnit);
+      setActiveHighlight(newSelectedUnit ? 'unit' : null);
       setShowFloorPlans(false);
     } else if (type === "floorPlan") {
-      setShowFloorPlans(!showFloorPlans);
+      const newShowFloorPlans = !showFloorPlans;
+      setShowFloorPlans(newShowFloorPlans);
+      setActiveHighlight(newShowFloorPlans ? 'floorPlan' : null);
       setSelectedUnit(null);
+    } else if (type === "floor") {
+      if (value === "1") {
+        const newHighlight = activeHighlight === 'wardrobe' ? null : 'wardrobe';
+        setActiveHighlight(newHighlight);
+        setShowFloorPlans(false);
+        setSelectedUnit(null);
+      } else if (value === "4") {
+        const newHighlight = activeHighlight === 'terrace' ? null : 'terrace';
+        setActiveHighlight(newHighlight);
+        setShowFloorPlans(false);
+        setSelectedUnit(null);
+      } else if (value === "5") {
+        const newHighlight = activeHighlight === 'skyclub' ? null : 'skyclub';
+        setActiveHighlight(newHighlight);
+        setShowFloorPlans(false);
+        setSelectedUnit(null);
+      } else {
+        setActiveHighlight(null);
+        setShowFloorPlans(false);
+        setSelectedUnit(null);
+      }
     }
-    
+
     if (svgRef.current) {
       const pathElements = svgRef.current.querySelectorAll('path[id^="floor"]');
-      pathElements.forEach(path => {
-        path.style.fill = '';
-      });
+      pathElements.forEach(path => { path.style.fill = ''; });
     }
   };
 
   const getFloorFillColor = (floor) => {
-    if (showFloorPlans) {
-      const hasFloorPlan = floor.info["floor-plan"];
-      const isAvailable = floor.info.availability?.toLowerCase() === "true";
-      
-      if (hasFloorPlan && isAvailable) {
-        return "#d0aa2d92";
-      } else {
-        return "rgba(0, 0, 0, 0.1)";
-      }
+    const isAvailable = floor.info.availability?.toLowerCase() === "true";
+    const floorNumber = parseInt(floor.info.floorNumber);
+
+    if (activeHighlight === 'wardrobe') {
+      return HIGHLIGHT_AREAS.wardrobe.targetFloors.includes(floorNumber)
+        ? (isAvailable ? "#8b5cf6" : "#6d28d9")
+        : "rgba(0, 0, 0, 0.1)";
     }
-    
-    if (selectedUnit) {
+
+    if (activeHighlight === 'terrace') {
+      return HIGHLIGHT_AREAS.terrace.targetFloors.includes(floorNumber)
+        ? (isAvailable ? "#10b981" : "#047857")
+        : "rgba(0, 0, 0, 0.1)";
+    }
+
+    if (activeHighlight === 'floorPlan') {
+      const hasFloorPlan = floor.info["has-floor-plan"];
+      return hasFloorPlan && isAvailable ? "#d0aa2d92" : "rgba(0, 0, 0, 0.1)";
+    }
+
+    if (activeHighlight === 'unit' && selectedUnit) {
       const matchesUnit = floor.info.bhk === selectedUnit;
-      const isAvailable = floor.info.availability?.toLowerCase() === "true";
-      
-      if (matchesUnit && isAvailable) {
-        return "#d0aa2d92";
-      } else if (matchesUnit && !isAvailable) {
-        return "#ff000064";
-      } else {
-        return "rgba(0, 0, 0, 0.1)";
-      }
+      if (matchesUnit && isAvailable) return "#d0aa2d92";
+      if (matchesUnit && !isAvailable) return "#ff000064";
+      return "rgba(0, 0, 0, 0.1)";
     }
-    
+
     return "rgba(0, 0, 0, 0.22)";
   };
 
-  // Loading state
+  // Render highlight path and open highlight modal on click
+  const renderHighlightAreas = () => {
+    if (!activeHighlight || !HIGHLIGHT_AREAS[activeHighlight]) return null;
+    const highlight = HIGHLIGHT_AREAS[activeHighlight];
+
+    return (
+      <path
+        key={`highlight-${activeHighlight}`}
+        d={highlight.d}
+        fill={highlight.color}
+        opacity="0.6"
+        stroke={highlight.color}
+        strokeWidth="2"
+        className="cursor-pointer transition-all duration-300"
+        style={{ filter: `drop-shadow(0 0 8px ${highlight.color})` }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setHighlightPlanModal({
+            id: activeHighlight,
+            name: highlight.name,
+            planImages: Array.isArray(highlight.planImages) ? highlight.planImages : []
+          });
+        }}
+      />
+    );
+  };
+
+  // Loading
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -203,7 +255,7 @@ export default function BuildingOverlay() {
     );
   }
 
-  // Error state
+  // Error
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -226,104 +278,92 @@ export default function BuildingOverlay() {
     );
   }
 
+  // UI
   return (
-    <div className="relative flex flex-col items-center w-full">
-      {/* ⚡ REAL-TIME STATUS INDICATORS */}
-      <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-        {/* Connection Status */}
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          connectionStatus === 'Connected' 
-            ? 'bg-green-100 text-green-800 border border-green-300' 
-            : 'bg-red-100 text-red-800 border border-red-300'
-        }`}>
-          ⚡ {connectionStatus}
-        </div>
-        
-        {/* Last Update Time */}
-        {lastUpdate && (
-          <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-            🕒 {lastUpdate}
-          </div>
-        )}
+    <div className="fixed inset-0 w-auto h-auto overflow-x-hidden bg-gray-100">
+      {/* Main Building Container */}
+      <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
+        <svg
+          ref={svgRef}
+          viewBox="0 0 383.07562 210.92149"
+          xmlns="http://www.w3.org/2000/svg"
+          className="max-w-full max-h-full"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {/* Background image */}
+          <image
+            href="/building.svg"
+            x="0"
+            y="0"
+            width="383.07562"
+            height="210.92149"
+            preserveAspectRatio="xMidYMid meet"
+          />
+
+          {/* Highlight Area Overlays */}
+          <g transform="translate(86,0)">
+            {renderHighlightAreas()}
+          </g>
+
+          {/* Floor paths */}
+          <g transform="translate(86,0)">
+            {floors.map((floor) => (
+              <path
+                key={floor.id}
+                id={floor.id}
+                d={floor.d}
+                fill={getFloorFillColor(floor)}
+                className="cursor-pointer transition-colors duration-200"
+                onMouseEnter={(event) => handleFloorMouseEnter(floor, event)}
+                onMouseLeave={(event) => handleFloorMouseLeave(floor, event)}
+                onClick={(event) => handleFloorClick(floor, event)}
+                vectorEffect="non-scaling-stroke"
+              >
+                <title>{floor.id}</title>
+              </path>
+            ))}
+          </g>
+        </svg>
       </div>
 
-      {/* Manual Refresh Button */}
-      <button
-        onClick={handleManualRefresh}
-        className="absolute top-4 left-4 z-10 px-4 py-2 bg-[#CFB284] text-white rounded-lg hover:bg-[#b8a073] transition-colors duration-200"
-      >
-        🔄 Refresh Now
-      </button>
-
-      {/* Update Status Notification */}
-      {updateStatus && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-gray-800 text-white rounded-lg shadow-lg">
-          {updateStatus}
-        </div>
-      )}
-
-      {/* Existing SVG and components */}
-      <svg
-        ref={svgRef}
-        viewBox="0 0 1920 1080"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-auto border"
-      >
-        <image
-          href="/building.svg"
-          x="0"
-          y="0"
-          className="w-50% h-50%"
-          preserveAspectRatio="xMidYMid slice"
-        />
-
-        {floors.length > 0 && floors.map((floor) => (
-          <path
-            key={floor.id}
-            id={floor.id}
-            d={floor.d}
-            fill={getFloorFillColor(floor)}
-            className={`cursor-pointer transition-colors duration-200 ${
-              showFloorPlans && floor.info["floor-plan"] && floor.info.availability?.toLowerCase() === "true" 
-                ? 'cursor-pointer hover:brightness-110' 
-                : ''
-            }`}
-            onMouseEnter={(event) => handleFloorMouseEnter(floor, event)}
-            onMouseLeave={(event) => handleFloorMouseLeave(floor, event)}
-            onClick={(event) => handleFloorClick(floor, event)}
-          >
-            <title>{floor.id}</title>
-          </path>
-        ))}
-      </svg>
-
-      {/* Existing components */}
+      {/* Floor Info Card */}
       {selectedFloor && (
         <div
-          className="absolute"
-          style={{
-            left: cardPosition.x,
-            top: cardPosition.y / 2,
-            transform: "translateY(-50%)",
-          }}
+          className="fixed z-20 pointer-events-none"
+          style={{ left: cardPosition.x, top: cardPosition.y, transform: "translate(10px, -50%)" }}
         >
-          <FloorInfoCard
-            info={selectedFloor.info}
-            onClose={() => setSelectedFloor(null)}
-          />
+          <div className="pointer-events-auto">
+            <FloorInfoCard
+              info={selectedFloor.info}
+              onClose={() => setSelectedFloor(null)}
+            />
+          </div>
         </div>
       )}
 
-      <Navbar 
-        onSelect={handleNavbarSelect} 
-        selectedUnit={selectedUnit}
-        showFloorPlans={showFloorPlans}
-      />
+      {/* Navbar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30">
+        <Navbar 
+          onSelect={handleNavbarSelect} 
+          selectedUnit={selectedUnit}
+          showFloorPlans={showFloorPlans}
+          activeHighlight={activeHighlight}
+        />
+      </div>
 
+      {/* Floor Plan Modal (floors) */}
       {floorPlanModal && (
         <FloorPlanModal
           floor={floorPlanModal}
           onClose={() => setFloorPlanModal(null)}
+        />
+      )}
+
+      {/* Highlight Plan Modal (Option A: reuse FloorPlanModal with highlight prop) */}
+      {highlightPlanModal && (
+        <FloorPlanModal
+          highlight={highlightPlanModal}
+          onClose={() => setHighlightPlanModal(null)}
         />
       )}
     </div>

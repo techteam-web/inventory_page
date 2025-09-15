@@ -1,369 +1,322 @@
-import { useEffect, useState, useRef } from "react";
-import gsap from "gsap";
+import { useEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
+import { createPortal } from "react-dom";
 import "../App.css";
 
 export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
-  const [unitsExpanded, setUnitsExpanded] = useState(false);
-  const [collapsing, setCollapsing] = useState(false);
-  const [currentFloor, setCurrentFloor] = useState("1");
-  const [animationState, setAnimationState] = useState('idle');
-  
-  const unitsBtnRef = useRef(null);
-  const itemRefs = useRef([]);
-  const unitRefs = useRef([]);
+  const containerRef = useRef(null);
+  const buttonRefs = useRef({});
+  const unitsRef = useRef(null);
+  const [selectedFloor, setSelectedFloor] = useState(null);
+  const [showUnits, setShowUnits] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false); // Track animation state
 
   const floors = [
-    { id: "1", label: "Wardrobe" },
+    { id: "1", label: "Exclusive Club" },
     { id: "2", label: "Floor-Plan" },
-    { id: "3", label: "Units" },
-    { id: "4", label: "Terrace" },
+    { id: "3", label: "Mansions" },
+    { id: "4", label: "Parking Levels" },
+    {id:"5",label:"Sky-Club"}
   ];
-  
-  const unitNumbers = [1, 2, 3, "Studio"];
 
-  // Simplified, smoother hover animations
-  const handleMouseEnter = (e) => {
-    if (animationState !== 'idle') return;
-    
-    const target = e.currentTarget;
-    gsap.to(target, {
-      scale: 1.05,
-      y: -1,
-      duration: 0.25,
-      ease: "power2.out" // Simpler, smoother easing
+  const unitNumbers = ["Duplex", "Duplex-R"];
+
+  const animateGradientFromPoint = (x, y, name) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const maxRadius = Math.hypot(rect.width, rect.height);
+    const targetRadius = Math.min(220, maxRadius);
+
+    container.style.setProperty("--x", `${x}px`);
+    container.style.setProperty("--y", `${y}px`);
+
+    gsap.killTweensOf(container);
+    gsap.set(container, { "--r": 0 });
+    gsap.to(container, {
+      duration: 0.45,
+      ease: "power3.out",
+      "--r": targetRadius,
+    });
+
+    const btn = buttonRefs.current[name];
+    if (btn) {
+      gsap.killTweensOf(btn);
+      gsap.set(btn, { "--br": 0 });
+      gsap.to(btn, { duration: 0.35, ease: "power3.out", "--br": 120 });
+    }
+  };
+
+  const handleContainerMouseMove = (event) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    target.style.setProperty("--x", `${mouseX}px`);
+    target.style.setProperty("--y", `${mouseY}px`);
+    target.style.setProperty("--b", `1`);
+  };
+
+  const rippleMouseMove = (e, btn) => {
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement("span");
+    if (btn.querySelector("span")) {
+      btn.querySelector("span").remove();
+    }
+    const size = Math.max(rect.width, rect.height);
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top - size / 2;
+
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+    ripple.style.position = "absolute";
+    ripple.style.borderRadius = "50%";
+    ripple.style.background = "#626478";
+    ripple.style.pointerEvents = "none";
+    ripple.style.transform = "scale(0)";
+    ripple.style.opacity = "1";
+    ripple.style.zIndex = "-1";
+
+    btn.appendChild(ripple);
+
+    gsap.to(ripple, {
+      scale: 4,
+      duration: 1.5,
+      ease: "power2.out",
     });
   };
 
-  const handleMouseLeave = (e) => {
-    const target = e.currentTarget;
-    gsap.to(target, {
-      scale: 1,
-      y: 0,
-      duration: 0.3,
-      ease: "power2.out"
-    });
-  };
-
-  // Enhanced click handlers
-  const handleUnitsExpand = (e) => {
-    e.preventDefault();
-    if (animationState !== 'idle') return;
-    
-    setAnimationState('expanding');
-    setUnitsExpanded(true);
-    setTimeout(() => setAnimationState('idle'), 800);
-  };
-
-  const handleUnitsCollapse = (e) => {
-    e.preventDefault();
-    if (animationState !== 'idle') return;
-    
-    setAnimationState('collapsing');
-    setCollapsing(true);
-  };
-
-  // Updated floor selection handler
-  const handleFloorSelect = (floorId, e) => {
-    e.preventDefault();
-    if (animationState !== 'idle') return;
-    
-    setCurrentFloor(floorId);
-    
-    // Handle Floor-Plan selection
-    if (floorId === "2") {
-      onSelect("floorPlan", true);
-    }
-    // Handle other floor selections - you can extend this as needed
-    else {
-      // Reset floor plan mode when other items are selected
-      if (showFloorPlans) {
-        onSelect("floorPlan", false);
-      }
-    }
-  };
-
-  const handleUnitSelect = (unitNum, e) => {
-    e.preventDefault();
-    if (animationState !== 'idle') return;
-    
-    onSelect("unit", unitNum.toString());
-  };
-
-  // Keyboard navigation
-  const handleKeyDown = (e, action) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      action(e);
-    }
-  };
-
-  useEffect(() => {
-    // SMOOTHER initial state animation
-    if (!unitsExpanded && !collapsing && animationState === 'idle') {
-      itemRefs.current.forEach((ref, idx) => {
-        if (ref) {
-          gsap.fromTo(ref,
-            { 
-              opacity: 0, 
-              y: 20, 
-              scale: 0.9
-            },
-            {
-              y: 0,
-              scale: 1,
-              opacity: 1,
-              duration: 0.6,
-              pointerEvents: "auto",
-              ease: "power3.out", // Smoother easing
-              delay: idx * 0.08
-            }
-          );
-        }
-      });
-    } 
-    // SMOOTHER expanding animation
-    else if (unitsExpanded && !collapsing) {
-      const tl = gsap.timeline();
+  const rippleMouseLeave = (e, btn) => {
+    const ripple = btn.querySelector("span");
+    if (ripple) {
+      const rect = btn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const x = e.clientX - rect.left - size / 2;
+      const y = e.clientY - rect.top - size / 2;
+      ripple.style.width = ripple.style.height = `${size}px`;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
       
-      // Phase 1: Hide other items smoothly
-      itemRefs.current.forEach((ref, idx) => {
-        if (ref && ref !== unitsBtnRef.current) {
-          tl.to(ref, {
-            opacity: 0,
-            scale: 0.9,
-            y: -10,
-            duration: 0.3,
-            pointerEvents: "none",
-            ease: "power2.inOut"
-          }, idx * 0.02);
-        }
-      });
-      
-      // Phase 2: Move Units button smoothly
-      if (unitsBtnRef.current) {
-        tl.to(unitsBtnRef.current, {
-          x: 120,
-          scale: 1.08,
-          boxShadow: "0 8px 25px rgba(207,178,132,0.3)",
-          duration: 0.5,
-          ease: "power3.out" // Smooth, natural easing
-        }, 0.2);
-      }
-      
-      // Phase 3: Show unit numbers with smooth stagger
-      tl.add(() => {
-        unitRefs.current.forEach((ref, idx) => {
-          if (ref) {
-            gsap.fromTo(ref,
-              { 
-                y: 25, 
-                opacity: 0, 
-                scale: 0.8
-              },
-              {
-                y: 0,
-                opacity: 1,
-                scale: 1,
-                duration: 0.5,
-                ease: "power3.out",
-                delay: idx * 0.08
-              }
-            );
-          }
-        });
-      }, "-=0.2");
-    } 
-    // SMOOTHER collapsing animation
-    else if (collapsing) {
-      const tl = gsap.timeline({
+      gsap.to(ripple, {
+        opacity: 0,
+        duration: 1,
+        scale: 0,
+        ease: "power1.out",
         onComplete: () => {
-          setUnitsExpanded(false);
-          setCollapsing(false);
-          setAnimationState('idle');
-          
-          // Clean reset
-          if (unitsBtnRef.current) {
-            gsap.set(unitsBtnRef.current, { 
-              x: 0, 
-              scale: 1, 
-              boxShadow: "none"
-            });
-          }
-          unitRefs.current.forEach(ref => {
-            if (ref) gsap.set(ref, { 
-              y: 0, 
-              opacity: 1, 
-              scale: 1
-            });
-          });
-        }
+          ripple.remove();
+        },
       });
+    }
+  };
 
-      // Phase 1: Hide unit numbers smoothly
-      unitRefs.current.forEach((ref, idx) => {
-        if (ref) {
-          tl.to(ref, {
-            y: 30,
-            opacity: 0,
-            scale: 0.7,
-            duration: 0.4,
-            ease: "power2.in"
-          }, idx * 0.05);
-        }
-      });
+  const handleContainerMouseLeave = (event) => {
+    const target = event.currentTarget;
+    target.style.setProperty("--x", `500%`);
+    target.style.setProperty("--y", `500%`);
+  };
 
-      // Phase 2: Move Units button back smoothly
-      if (unitsBtnRef.current) {
-        tl.to(unitsBtnRef.current, {
-          x: 0,
-          scale: 1,
-          boxShadow: "none",
-          duration: 0.6,
-          ease: "power3.out" // Consistent smooth easing
-        }, 0.3);
-      }
+  const handleUnitsMouseMove = (event) => {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    target.style.setProperty("--lx", `${mouseX}px`);
+    target.style.setProperty("--ly", `${mouseY}px`);
+  };
 
-      // Phase 3: Show other items smoothly
-      itemRefs.current.forEach((ref, idx) => {
-        if (ref && ref !== unitsBtnRef.current) {
-          tl.fromTo(ref,
-            { 
-              opacity: 0, 
-              y: -10, 
-              scale: 0.9
-            },
-            {
-              y: 0,
-              scale: 1,
-              opacity: 1,
-              duration: 0.5,
-              pointerEvents: "auto",
-              ease: "power3.out"
-            }, 0.4 + (idx * 0.06)
-          );
+  const handleUnitsMouseLeave = (event) => {
+    const target = event.currentTarget;
+    target.style.setProperty("--lx", `50%`);
+    target.style.setProperty("--ly", `50%`);
+  };
+
+  // Updated to handle smooth closing
+  const closeUnits = () => {
+    if (isAnimating) return; // Prevent multiple animations
+    
+    setIsAnimating(true);
+    if (unitsRef.current) {
+      gsap.to(unitsRef.current, {
+        opacity: 0,
+        scale: 0.8,
+        y: 20,
+        duration: 0.6, // Slightly faster exit
+        ease: "power2.in",
+        onComplete: () => {
+          setShowUnits(false);
+          setIsAnimating(false);
         }
       });
     }
-  }, [unitsExpanded, collapsing, animationState]);
+  };
+
+  const handleFloorClick = (floorId, e) => {
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      animateGradientFromPoint(x, y, `floor-${floorId}`);
+    }
+
+    if (floorId === "3") {
+      if (showUnits) {
+        closeUnits(); // Use smooth close function
+        setSelectedFloor(null);
+      } else {
+        setShowUnits(true);
+        setSelectedFloor(floorId);
+      }
+    } else if (floorId === "2") {
+      onSelect("floorPlan", !showFloorPlans);
+      if (showUnits) closeUnits(); // Smooth close
+      setSelectedFloor(showFloorPlans ? null : floorId);
+    } else {
+      onSelect("floor", floorId);
+      if (showUnits) closeUnits(); // Smooth close
+      setSelectedFloor(floorId);
+    }
+  };
+
+  const handleUnitClick = (unit, e) => {
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      animateGradientFromPoint(x, y, `unit-${unit}`);
+    }
+    onSelect("unit", unit.toString());
+  };
+
+  // Enhanced animation effect
+  useEffect(() => {
+    if (unitsRef.current && showUnits && !isAnimating) {
+      // Animate in
+      gsap.fromTo(
+        unitsRef.current,
+        {
+          opacity: 0,
+          scale: 0.8,
+          y: 20,
+        },
+        {
+          opacity: 1,
+          scale: 1,
+          y: 0,
+          duration: 0.8, // Slightly faster entry
+          ease: "power3.out",
+        }
+      );
+    }
+  }, [showUnits, isAnimating]);
 
   return (
     <div className="w-full h-full flex items-center justify-center">
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[70%] h-[50px] bg-black/50 backdrop-blur-sm rounded-lg shadow-lg border border-white/10">
-        <div className="flex justify-between items-end h-full">
-          
-          {/* Floor Items or Units Expanded */}
-          {!unitsExpanded ? (
-            floors.map((floor, idx) => (
-              <div
-                key={floor.id}
-                ref={floor.id === "3" ? unitsBtnRef : el => itemRefs.current[idx] = el}
-                className={`flex-1 flex flex-col items-center justify-end text-center cursor-pointer transition-all duration-300 ${
-                  // Highlight Floor-Plan when in floor-plan mode OR when it's the current floor
-                  (currentFloor === floor.id) || (floor.id === "2" && showFloorPlans)
-                    ? "font-bold text-[#CFB284] drop-shadow-[0_0_12px_rgba(207,178,132,0.4)]" 
-                    : "text-[#DFCAA0] hover:text-[#E8D4B0]"
-                } ${animationState !== 'idle' ? 'pointer-events-none' : ''}`}
-                data-id={floor.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Navigate to ${floor.label}`}
-                aria-pressed={(currentFloor === floor.id) || (floor.id === "2" && showFloorPlans)}
-                style={{ 
-                  flexBasis: "150%",
-                  filter: (currentFloor === floor.id) || (floor.id === "2" && showFloorPlans) ? 'brightness(1.15)' : 'brightness(1)',
-                  willChange: 'transform, opacity' // Hardware acceleration
-                }}
-                onClick={floor.id === "3" ? handleUnitsExpand : (e) => handleFloorSelect(floor.id, e)}
-                onKeyDown={(e) => handleKeyDown(e, floor.id === "3" ? handleUnitsExpand : (e) => handleFloorSelect(floor.id, e))}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-              >
-                <a 
-                  href={floor.id === "3" ? "#" : "/ui"} 
-                  className="m-1 text-[clamp(14px,2vw,22px)] font-[Gotham-Office] relative"
-                  onClick={e => e.preventDefault()}
-                >
-                  {floor.label}
-                  {/* Show active indicator for current floor OR when Floor-Plan is active */}
-                  {((currentFloor === floor.id) || (floor.id === "2" && showFloorPlans)) && (
-                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#CFB284] rounded-full shadow-[0_0_8px_rgba(207,178,132,0.6)] animate-pulse" />
-                  )}
-                </a>
-              </div>
-            ))
-          ) : (
-            <>
-              {/* Units button in expanded state */}
-              <div
-                className={`flex-1 flex flex-col items-center justify-end text-center cursor-pointer font-bold text-[#CFB284] transition-all duration-200 ${
-                  animationState !== 'idle' ? 'pointer-events-none' : ''
-                }`}
-                ref={unitsBtnRef}
-                data-id="3"
-                role="button"
-                tabIndex={0}
-                aria-label="Collapse units menu"
-                style={{ 
-                  flexBasis: "80%", 
-                  marginRight: "40px",
-                  filter: 'brightness(1.15) drop-shadow(0 0 12px rgba(207,178,132,0.4))',
-                  willChange: 'transform, opacity'
-                }}
-                onClick={handleUnitsCollapse}
-                onKeyDown={(e) => handleKeyDown(e, handleUnitsCollapse)}
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
-              >
-                <a
-                  href="#"
-                  className="m-1 text-[clamp(14px,2vw,22px)] font-[Gotham-Office] relative"
-                  onClick={e => e.preventDefault()}
-                >
-                  Units
-                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#CFB284] rounded-full shadow-[0_0_8px_rgba(207,178,132,0.6)] animate-pulse" />
-                </a>
-              </div>
-              
-              {/* Unit numbers */}
-              {unitNumbers.map((num, idx) => (
-                <div
-                  key={num}
-                  ref={el => unitRefs.current[idx] = el}
-                  className={`flex-1 flex flex-col items-center justify-end text-center cursor-pointer transition-all duration-200 ${
-                    selectedUnit === num.toString() 
-                      ? "font-bold text-[#CFB284] drop-shadow-[0_0_8px_rgba(207,178,132,0.3)]" 
-                      : "text-[#DFCAA0] hover:text-[#E8D4B0]"
-                  } ${animationState !== 'idle' ? 'pointer-events-none' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Select unit ${num}`}
-                  aria-pressed={selectedUnit === num.toString()}
-                  style={{ 
-                    flexBasis: "80%", 
-                    marginLeft: idx === 0 ? "25px" : "5px",
-                    filter: selectedUnit === num.toString() ? 'brightness(1.1)' : 'brightness(1)',
-                    willChange: 'transform, opacity'
-                  }}
-                  onClick={(e) => handleUnitSelect(num, e)}
-                  onKeyDown={(e) => handleKeyDown(e, (e) => handleUnitSelect(num, e))}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <a
-                    href="#"
-                    className="m-1 text-[clamp(14px,2vw,22px)] font-[Gotham-Office] relative"
-                    onClick={e => e.preventDefault()}
-                  >
-                    {num}
-                    {selectedUnit === num.toString() && (
-                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-[#CFB284] rounded-full shadow-[0_0_8px_rgba(207,178,132,0.6)] animate-pulse" />
-                    )}
-                  </a>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+      <div
+        ref={containerRef}
+        onMouseMove={handleContainerMouseMove}
+        onMouseLeave={handleContainerMouseLeave}
+        className="drop-container overflow-hidden w-fit h-fit text-nowrap text-white bottom-2 left-1/2 transform -translate-x-1/2 p-2 z-[99999] absolute bg-clip-padding backdrop-blur-sm border-4 border-[#385270]
+         rounded-4xl flex justify-center items-center gap-16 
+         max-sm:gap-1 max-sm:bottom-1 max-sm:border-2 max-sm:p-0.5 
+         max-md:gap-0 max-md:bottom-1 max-md:border-2 max-md:p-0.5 max-md:justify-between
+         max-lg:gap-0 max-lg:bottom-2 max-lg:border-2 max-lg:p-1 max-lg:justify-between 
+         max-xl:p-2 max-xl:gap-0 max-xl:justify-between"
+        style={{
+          "--x": "500%",
+          "--y": "500%",
+          "--r": "160px",
+          backgroundImage:
+            "radial-gradient(var(--r) var(--r) at var(--x) var(--y), rgba(255, 208, 117, 0.8), rgba(255,255,255,0) 40%)",
+        }}
+      >
+        {/* Floor Navigation Buttons */}
+        {floors.map((floor) => (
+          <div className="flex items-center" key={floor.id}>
+            <button
+              ref={(el) => {
+                if (el) buttonRefs.current[`floor-${floor.id}`] = el;
+              }}
+              onMouseEnter={(e) => rippleMouseMove(e, e.currentTarget)}
+              onMouseLeave={(e) => rippleMouseLeave(e, e.currentTarget)}
+              className="dropbox-btn font-zap uppercase overflow-hidden text-shadow-lg p-1 px-3 rounded-2xl transition-all duration-300 cursor-pointer relative 
+                max-sm:px-1 max-sm:p-0.5 max-sm:text-[8px] 
+                max-md:px-2 max-md:p-1 max-md:text-[10px] 
+                max-lg:px-2 max-lg:p-1 max-lg:text-[12px]
+                max-xl:px-2 max-xl:p-1 max-xl:text-[12px]
+                max-2xl:px-2 max-2xl:p-1 max-2xl:text-[14px]"
+              onClick={(e) => handleFloorClick(floor.id, e)}
+              style={
+                ((floor.id === "2" && showFloorPlans) || 
+                 (floor.id === "3" && showUnits) || 
+                 selectedFloor === floor.id)
+                  ? {
+                      backgroundColor: "#404566",
+                    }
+                  : {}
+              }
+            >
+              {floor.label}
+            </button>
+          </div>
+        ))}
+
+        {/* Units Panel Portal - Always render when showUnits is true OR isAnimating */}
+        {(showUnits || isAnimating) && createPortal(
+  <div
+    ref={unitsRef}
+    onMouseMove={handleUnitsMouseMove}
+    onMouseLeave={handleUnitsMouseLeave}
+    className="w-auto bottom-19 left-1/2 transform -translate-x-1/2 p-2 fixed z-[100000] flex gap-4 border-2 rounded-xl justify-center items-center bg-clip-padding backdrop-blur-3xl border-solid border-[rgb(187,174,99)] 
+    max-sm:bottom-7 max-sm:border-1 max-sm:rounded-md max-sm:gap-2 max-sm:p-1 
+    max-md:bottom-9 max-md:border-1 max-md:rounded-lg max-md:gap-3 max-md:p-1 
+    max-lg:bottom-13 max-lg:rounded-lg max-lg:gap-3 max-lg:p-1
+    max-xl:bottom-18 max-xl:p-2 max-xl:gap-4
+    max-2xl:bottom-17 max-2xl:p-2 max-2xl:gap-4"
+    style={{
+      "--lx": "50%",
+      "--ly": "50%",
+      "--lr": "120px",
+      backgroundImage:
+        "radial-gradient(var(--lr) var(--lr) at var(--lx) var(--ly), rgba(255,255,255,0.2), rgba(255,255,255,0) 55%)",
+      backgroundColor: "rgba(24,26,61,0.67)",
+      backdropFilter: "blur(12px)",
+      WebkitBackdropFilter: "blur(12px)",
+      minWidth: "200px", // Ensure minimum width for centering
+    }}
+  >
+    {unitNumbers.map((unit) => (
+      <button
+        key={unit}
+        ref={(el) => {
+          if (el) buttonRefs.current[`unit-${unit}`] = el;
+        }}
+        onMouseEnter={(e) => rippleMouseMove(e, e.currentTarget)}
+        onMouseLeave={(e) => rippleMouseLeave(e, e.currentTarget)}
+        onClick={(e) => handleUnitClick(unit, e)}
+        className="overflow-hidden uppercase text-shadow-lg text-white p-2 px-4 rounded-md transition-all duration-300 cursor-pointer relative text-center flex-shrink-0
+        max-sm:px-2 max-sm:p-1 max-sm:rounded-xs max-sm:text-[8px]  
+        max-md:px-3 max-md:p-1.5 max-md:rounded-xs max-md:text-[10px]   
+        max-lg:px-3 max-lg:p-1.5 max-lg:rounded-sm max-lg:text-[12px]
+        max-2xl:px-4 max-2xl:p-2 max-2xl:rounded-sm max-2xl:text-[13px]"
+        style={
+          selectedUnit === unit.toString()
+            ? {
+                backgroundColor: "rgba(255,208,117,0.4)",
+              }
+            : {}
+        }
+      >
+        {unit}
+      </button>
+    ))}
+  </div>,
+  document.body
+)}
       </div>
     </div>
   );
