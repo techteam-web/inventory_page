@@ -13,7 +13,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
 
   const floors = [
     { id: "1", label: "Exclusive Club" },
-    { id: "2", label: "Floor-Plan" },
+    
     { id: "3", label: "Mansions" },
     { id: "4", label: "Parking Levels" },
     {id:"5",label:"Sky-Club"}

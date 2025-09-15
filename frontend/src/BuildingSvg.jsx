@@ -12,39 +12,39 @@ export default function BuildingOverlay() {
   const [updateStatus, setUpdateStatus] = useState('');
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  // Existing state
+  // Floor states
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [cardPosition, setCardPosition] = useState({ x: 0, y: 0 });
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showFloorPlans, setShowFloorPlans] = useState(false);
-  const [floorPlanModal, setFloorPlanModal] = useState(null); // floor modal data
+  const [floorPlanModal, setFloorPlanModal] = useState(null);
 
-  // NEW: highlight plan modal data (Option A: reuse FloorPlanModal with highlight prop)
+  // Highlight modal (Option A)
   const [highlightPlanModal, setHighlightPlanModal] = useState(null); // { id, name, planImages: [] }
 
-  // NEW: Highlight state
-  const [activeHighlight, setActiveHighlight] = useState(null); // 'wardrobe', 'terrace', 'skyclub', 'floorPlan', 'unit'
+  // Filter/active state: 'wardrobe' | 'terrace' | 'skyclub' | 'floorPlan' | 'unit' | null
+  const [activeHighlight, setActiveHighlight] = useState(null);
+
+  // Hover state for category overlays
+  const [hoverHighlight, setHoverHighlight] = useState(null);
 
   const svgRef = useRef(null);
   const socketRef = useRef(null);
 
-  // NEW: Highlight Areas with plan images
+  // Category overlays with their plan images
   const HIGHLIGHT_AREAS = {
     wardrobe: {
       name: "Wardrobe Areas",
-      color: "#8a5cf6b1",
+      activeFill: "rgba(139, 92, 246, 0.60)",  // purple
+      hoverFill: "rgba(139, 92, 246, 0.50)",
       d: "m 90.723317,145.66639 12.821743,-1.69155 c 0,0 -1.715,0.13584 0.017,0 1.73197,-0.13584 4.87331,0.0509 4.87331,0.0509 l 1.73197,0.20376 0.71317,0.0849 0.62827,0.1698 0.62826,0.22075 0.44149,0.18678 0.32262,0.1698 0.39054,0.28866 0.22074,0.23773 0.0679,0.1698 0.0679,0.27168 0.017,0.37357 0.017,6.77508 c 0,0 0.47544,-0.0849 -0.66223,-0.40752 -1.13767,-0.32263 -3.15831,-0.57733 -3.15831,-0.57733 l -1.17163,-0.11886 -0.96787,-0.034 -5.04311,0.017 -1.25653,0.0509 -0.98485,0.0679 -11.138989,1.20559 0.0849,-7.02979 z",
-      targetFloors: [],
-      planImages: [
-        "/floor-plans/club1.jpg",
-        "/floor-plans/club2.jpg"
-      ]
+      planImages: ["/floor-plans/club1.jpg", "/floor-plans/club2.jpg"]
     },
     terrace: {
-      name: "Terrace Areas",
-      color: "#10b981be",
+      name: "Parking / Terrace",
+      activeFill: "rgba(16, 185, 129, 0.60)", // green
+      hoverFill: "rgba(16, 185, 129, 0.50)",
       d: "m 89.378556,154.11918 -0.240136,32.22622 24.78202,0.19211 0.048,-32.99466 c 0,0 1.36877,0.69639 -0.1681,-0.048 -1.53687,-0.74442 -3.45796,-1.10462 -3.45796,-1.10462 l -3.26584,-0.21612 -4.03429,0.12006 -13.807805,1.29674 z",
-      targetFloors: [],
       planImages: [
         "/floor-plans/parking1.jpg",
         "/floor-plans/parking2.jpg",
@@ -54,13 +54,11 @@ export default function BuildingOverlay() {
       ]
     },
     skyclub: {
-      name: "Sky Club Area",
-      color: "#87ceeb",
+      name: "Sky Club",
+      activeFill: "rgba(135, 206, 235, 0.60)", // blue
+      hoverFill: "rgba(135, 206, 235, 0.50)",
       d: "m 89.426583,37.749353 13.159447,-5.859315 c 0,0 -2.20925,0.480272 0,0 2.20925,-0.480271 3.74612,-0.288163 3.74612,-0.288163 0,0 -1.87306,-0.288163 0.14408,0.09605 2.01714,0.384217 3.07374,1.00857 3.07374,1.00857 0,0 -1.34476,-0.864489 0.14408,0.04803 1.48884,0.912516 3.65006,3.794146 3.65006,3.794146 L 113.152,36.020375 c 0,0 -0.76843,1.440815 0,0 0.76844,-1.440815 0.81647,-5.379043 0.81647,-5.379043 0,0 0.33619,1.200679 0,0 -0.3362,-1.200679 -0.96055,-2.737549 -0.96055,-2.737549 0,0 0.38422,-0.144081 -0.91251,-1.68095 -1.29674,-1.536869 -3.1698,-2.641494 -3.1698,-2.641494 l -1.777,-0.768435 -1.44082,-0.144081 -1.15265,0.09605 -0.91252,-0.04803 -0.48027,0.09605 -1.20068,0.528299 -11.862706,5.523124 c 0,0 0.240135,-0.624353 -0.720408,1.056598 -0.960543,1.680951 -0.09605,1.921086 -0.09605,1.921086 0,0 -1.056598,-0.576326 -0.192113,0.33619 0.864489,0.912516 1.536869,0.576326 1.440815,0.912516 -0.09605,0.336191 -0.720407,0.336191 -0.144077,1.440816 0.576326,1.104625 -0.816463,1.728978 -0.816463,1.728978",
-      targetFloors: [],
-      planImages: [
-        "/floor-plans/skyclub.jpg",
-      ]
+      planImages: ["/floor-plans/skyclub.jpg"]
     }
   };
 
@@ -124,22 +122,23 @@ export default function BuildingOverlay() {
     setTimeout(() => setUpdateStatus(''), 3000);
   };
 
-  // Handlers
+  // Floors: hover/click
   const handleFloorMouseEnter = (floor, event) => {
     setSelectedFloor(floor);
     setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
-    event.target.style.fill = "rgba(139, 108, 92, 0.5)";
+    // Keep hover subtle; do not force category color on floors
+    const isAvailable = floor.info.availability?.toLowerCase() === "true";
+    const hoverFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
+    event.target.style.fill = hoverFill;
+    
   };
-
   const handleFloorMouseLeave = (floor, event) => {
     setSelectedFloor(null);
     event.target.style.fill = getFloorFillColor(floor);
   };
-
   const handleFloorClick = (floor, event) => {
-    if (showFloorPlans && floor.info["has-floor-plan"]) {
-      setFloorPlanModal(floor);
-    }
+    const hasPlan = floor.info["has-floor-plan"];
+    if (hasPlan) setFloorPlanModal(floor);
   };
 
   // Navbar selection
@@ -156,18 +155,15 @@ export default function BuildingOverlay() {
       setSelectedUnit(null);
     } else if (type === "floor") {
       if (value === "1") {
-        const newHighlight = activeHighlight === 'wardrobe' ? null : 'wardrobe';
-        setActiveHighlight(newHighlight);
+        setActiveHighlight(prev => prev === 'wardrobe' ? null : 'wardrobe');
         setShowFloorPlans(false);
         setSelectedUnit(null);
       } else if (value === "4") {
-        const newHighlight = activeHighlight === 'terrace' ? null : 'terrace';
-        setActiveHighlight(newHighlight);
+        setActiveHighlight(prev => prev === 'terrace' ? null : 'terrace');
         setShowFloorPlans(false);
         setSelectedUnit(null);
       } else if (value === "5") {
-        const newHighlight = activeHighlight === 'skyclub' ? null : 'skyclub';
-        setActiveHighlight(newHighlight);
+        setActiveHighlight(prev => prev === 'skyclub' ? null : 'skyclub');
         setShowFloorPlans(false);
         setSelectedUnit(null);
       } else {
@@ -183,62 +179,72 @@ export default function BuildingOverlay() {
     }
   };
 
+  // Floors: keep neutral unless unit/floorPlan filters are active
   const getFloorFillColor = (floor) => {
     const isAvailable = floor.info.availability?.toLowerCase() === "true";
-    const floorNumber = parseInt(floor.info.floorNumber);
 
-    if (activeHighlight === 'wardrobe') {
-      return HIGHLIGHT_AREAS.wardrobe.targetFloors.includes(floorNumber)
-        ? (isAvailable ? "#8b5cf6" : "#6d28d9")
-        : "rgba(0, 0, 0, 0.1)";
-    }
-
-    if (activeHighlight === 'terrace') {
-      return HIGHLIGHT_AREAS.terrace.targetFloors.includes(floorNumber)
-        ? (isAvailable ? "#10b981" : "#047857")
-        : "rgba(0, 0, 0, 0.1)";
+    // When category filters (wardrobe/terrace/skyclub) are active, keep floors neutral
+    if (activeHighlight === 'wardrobe' || activeHighlight === 'terrace' || activeHighlight === 'skyclub') {
+      return "rgba(0, 0, 0, 0.22)";
     }
 
     if (activeHighlight === 'floorPlan') {
       const hasFloorPlan = floor.info["has-floor-plan"];
-      return hasFloorPlan && isAvailable ? "#d0aa2d92" : "rgba(0, 0, 0, 0.1)";
+      return hasFloorPlan && isAvailable ? "#d0aa2d92" : "rgba(0, 0, 0, 0.10)";
     }
 
     if (activeHighlight === 'unit' && selectedUnit) {
       const matchesUnit = floor.info.bhk === selectedUnit;
-      if (matchesUnit && isAvailable) return "#d0aa2d92";
-      if (matchesUnit && !isAvailable) return "#ff000064";
-      return "rgba(0, 0, 0, 0.1)";
+      if (matchesUnit && isAvailable) return "rgba(208, 170, 45, 0.28)";
+      if (matchesUnit && !isAvailable) return "rgba(255, 0, 0, 0.28)";
+      return "rgba(0, 0, 0, 0.10)";
     }
 
     return "rgba(0, 0, 0, 0.22)";
   };
 
-  // Render highlight path and open highlight modal on click
-  const renderHighlightAreas = () => {
-    if (!activeHighlight || !HIGHLIGHT_AREAS[activeHighlight]) return null;
-    const highlight = HIGHLIGHT_AREAS[activeHighlight];
+  // CATEGORY OVERLAYS: Option A behavior
+  // - Default: dim/neutral (no category color)
+  // - Hover: subtle highlight
+  // - Active: category color
+  const renderCategoryOverlays = () => {
+    const keys = ['wardrobe', 'terrace', 'skyclub'];
+    return keys.map(key => {
+      const area = HIGHLIGHT_AREAS[key];
+      if (!area) return null;
 
-    return (
-      <path
-        key={`highlight-${activeHighlight}`}
-        d={highlight.d}
-        fill={highlight.color}
-        opacity="0.6"
-        stroke={highlight.color}
-        strokeWidth="2"
-        className="cursor-pointer transition-all duration-300"
-        style={{ filter: `drop-shadow(0 0 8px ${highlight.color})` }}
-        onClick={(e) => {
-          e.stopPropagation();
-          setHighlightPlanModal({
-            id: activeHighlight,
-            name: highlight.name,
-            planImages: Array.isArray(highlight.planImages) ? highlight.planImages : []
-          });
-        }}
-      />
-    );
+      let fill = "rgba(0,0,0,0.10)"; // neutral when not active
+      if (activeHighlight === key) fill = area.activeFill;
+      else if (hoverHighlight === key) fill = area.hoverFill;
+
+      return (
+        <path
+          key={`cat-${key}`}
+          d={area.d}
+          fill={fill}
+          className="cursor-pointer transition-all duration-200"
+          style={{
+            filter:
+              activeHighlight === key
+                ? "drop-shadow(0 0 6px rgba(0,0,0,0.15))"
+                : hoverHighlight === key
+                ? "drop-shadow(0 0 4px rgba(0,0,0,0.12))"
+                : "none"
+          }}
+          onMouseEnter={() => setHoverHighlight(key)}
+          onMouseLeave={() => setHoverHighlight(prev => (prev === key ? null : prev))}
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveHighlight(key);
+            setHighlightPlanModal({
+              id: key,
+              name: area.name,
+              planImages: Array.isArray(area.planImages) ? area.planImages : []
+            });
+          }}
+        />
+      );
+    });
   };
 
   // Loading
@@ -280,19 +286,23 @@ export default function BuildingOverlay() {
 
   // UI
   return (
-    <div className="fixed inset-0 w-auto h-auto overflow-x-hidden bg-[#dedbd4]">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#dedbd4]">
       {/* Main Building Container */}
-      <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
+      <div className="relative w-full h-full flex items-center justify-center">
         <svg
           ref={svgRef}
           viewBox="0 0 377 210.92149"
           xmlns="http://www.w3.org/2000/svg"
-          className="max-w-full max-h-full"
-          preserveAspectRatio="xMidYMid meet"
+          className="w-full h-full"
+          preserveAspectRatio="xMidYMid slice"
+          style={{
+            minWidth:'100%',
+            minHeight:'100%',
+          }}
         >
           {/* Background image */}
           <image
-            href="/building2.svg"
+            href="/building.svg"
             x="0"
             y="0"
             width="381.7"
@@ -300,13 +310,13 @@ export default function BuildingOverlay() {
             preserveAspectRatio="xMidYMid meet"
           />
 
-          {/* Highlight Area Overlays */}
+          {/* Category overlays: Option A behavior */}
           <g transform="translate(86,0)">
-            {renderHighlightAreas()}
+            {renderCategoryOverlays()}
           </g>
 
           {/* Floor paths */}
-          <g transform="translate(86,0)">
+          <g transform="translate(85,0)">
             {floors.map((floor) => (
               <path
                 key={floor.id}
@@ -319,7 +329,7 @@ export default function BuildingOverlay() {
                 onClick={(event) => handleFloorClick(floor, event)}
                 vectorEffect="non-scaling-stroke"
               >
-                <title>{floor.id}</title>
+                
               </path>
             ))}
           </g>
@@ -359,11 +369,14 @@ export default function BuildingOverlay() {
         />
       )}
 
-      {/* Highlight Plan Modal (Option A: reuse FloorPlanModal with highlight prop) */}
+      {/* Highlight Plan Modal (Option A) */}
       {highlightPlanModal && (
         <FloorPlanModal
           highlight={highlightPlanModal}
-          onClose={() => setHighlightPlanModal(null)}
+          onClose={() => {
+            setHighlightPlanModal(null);
+            setActiveHighlight(null);
+          }}
         />
       )}
     </div>

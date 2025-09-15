@@ -9,6 +9,7 @@ function FloorInfoCard({ info, onClose }) {
         sm:right-6 sm:top-6
         md:right-10 md:top-10
         z-20
+       
       "
     >
       <div
@@ -21,6 +22,7 @@ function FloorInfoCard({ info, onClose }) {
           p-4 sm:p-5 md:p-6
           border border-yellow-100
         "
+        style={{ fontFamily: 'Gotham-Office, sans-serif' }}
       >
         {/* Header */}
         <div className="flex items-baseline justify-between mb-3 sm:mb-4">
@@ -28,7 +30,8 @@ function FloorInfoCard({ info, onClose }) {
             className="font-bold text-gray-900"
             style={{
               fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', // ~20px → ~28px
-              lineHeight: 1.1
+              lineHeight: 1.1,
+              fontFamily: 'Gotham-Office, sans-serif'
             }}
           >
            Floor {info.floorNumber}
@@ -40,7 +43,10 @@ function FloorInfoCard({ info, onClose }) {
         <div className="text-gray-700 space-y-2">
           <p
             className="font-semibold text-gray-900"
-            style={{ fontSize: 'clamp(1rem, 2.2vw, 1.125rem)' }} // 16px → 18px
+            style={{ 
+              fontSize: 'clamp(1rem, 2.2vw, 1.125rem)',
+              fontFamily: 'Gotham-Office, sans-serif'
+            }} // 16px → 18px
           >
             {info.price}
           </p>
@@ -48,19 +54,28 @@ function FloorInfoCard({ info, onClose }) {
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2">
             <p
               className="text-gray-600"
-              style={{ fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)' }} // 13px → 15px
+              style={{ 
+                fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)',
+                fontFamily: 'Gotham-Office, sans-serif'
+              }} // 13px → 15px
             >
               Area: <span className="text-gray-800">{info.area}</span>
             </p>
             <p
               className="text-gray-600"
-              style={{ fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)' }}
+              style={{ 
+                fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)',
+                fontFamily: 'Gotham-Office, sans-serif'
+              }}
             >
               Type: <span className="text-gray-800">{info.bhk}</span>
             </p>
             <p
               className="text-gray-600 sm:col-span-2"
-              style={{ fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)' }}
+              style={{ 
+                fontSize: 'clamp(0.8125rem, 1.6vw, 0.9375rem)',
+                fontFamily: 'Gotham-Office, sans-serif'
+              }}
             >
               Available:{" "}
               <span
