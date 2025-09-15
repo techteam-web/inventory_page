@@ -1,3 +1,4 @@
+
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
@@ -106,12 +107,19 @@ class GoogleSheetsService {
 
   transformData(rows) {
     const [headers, ...dataRows] = rows;
+
+    const parseFloorPlanImages = (floorPlanString) => {
+        if (!floorPlanString || floorPlanString.trim() === '') return [];
+        return floorPlanString.split(',').map(url=> url.trim()).filter(url => url.length >0);
+    }
     
     return dataRows.map(row => {
       const rowData = {};
       headers.forEach((header, index) => {
         rowData[header] = row[index] || '';
       });
+
+      const floorPlanImages = parseFloorPlanImages(rowData['floor-plan']); 
       
       return {
         id: rowData.id,
@@ -122,7 +130,9 @@ class GoogleSheetsService {
           area: rowData.area,
           bhk: rowData.bhk,
           availability: rowData.availability,
-          "floor-plan": rowData['floor-plan'] || null
+          "floor-plan": rowData['floor-plan'] || null,
+          "floor-plan-images": floorPlanImages,
+          "has-floor-plan": floorPlanImages.length >0
         }
       };
     }).filter(floor => floor.id && floor.d);

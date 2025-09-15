@@ -1,7 +1,7 @@
 const express = require("express");
 const NodeCache = require("node-cache");
 const googleSheetsService = require("../services/googleSheetsService");
-const floors = require("../data/floors.json");
+// ✅ REMOVED: const floors = require("../data/floors.json");
 
 const router = express.Router();
 
@@ -118,15 +118,14 @@ router.get("/", async (req, res) => {
       });
 
     } catch (sheetsError) {
-      console.warn('⚠️ Google Sheets failed, falling back to JSON file:', sheetsError.message);
+      console.error('❌ Google Sheets service failed:', sheetsError.message);
       
-      return res.json({
-        success: true,
-        data: floors,
-        cached: false,
-        source: 'json_fallback',
-        count: floors.length,
-        warning: 'Using fallback data due to Google Sheets error',
+      // ✅ UPDATED: Return error instead of JSON fallback
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch floors data from Google Sheets',
+        message: sheetsError.message || 'Google Sheets service unavailable',
+        hint: 'Please check your Google Sheets configuration and network connection',
         timestamp: new Date().toISOString()
       });
     }
@@ -154,8 +153,15 @@ router.get("/:id", async (req, res) => {
         floorsData = await googleSheetsService.getFloors();
         cache.set('floors', floorsData);
       } catch (error) {
-        console.warn('Using fallback JSON for single floor request');
-        floorsData = floors;
+        console.error('❌ Google Sheets service failed for single floor request:', error);
+        
+        // ✅ UPDATED: Return error instead of JSON fallback
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to fetch floor data from Google Sheets',
+          message: error.message || 'Google Sheets service unavailable',
+          timestamp: new Date().toISOString()
+        });
       }
     }
     
