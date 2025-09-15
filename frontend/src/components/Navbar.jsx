@@ -177,7 +177,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
     } else {
       onSelect("floor", floorId);
       if (showUnits) closeUnits(); // Smooth close
-      setSelectedFloor(floorId);
+      setSelectedFloor(selectedFloor === floorId ? null : floorId);
     }
   };
 
@@ -215,7 +215,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
   }, [showUnits, isAnimating]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div className="w-full h-full flex items-center justify-center" style={{ fontFamily: 'Gotham-Office, sans-serif' }} >
       <div
         ref={containerRef}
         onMouseMove={handleContainerMouseMove}

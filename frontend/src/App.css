@@ -1,8 +1,10 @@
 @import "tailwindcss";
 @font-face {
   font-family: "Gotham-Office";
-  src: url("/src/assets/GothamOffice-Regular.otf");
+  src: url("/src/assets/bodoni.ttf");
+  font-weight: lighter;
 }
+
 /* Add to your CSS file or Tailwind config */
 .drop-container::before{
     content: '';

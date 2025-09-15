@@ -27,7 +27,7 @@ function FloorInfoCard({ info, onClose }) {
         {/* Header */}
         <div className="flex items-baseline justify-between mb-3 sm:mb-4">
           <h2
-            className="font-bold text-gray-900"
+            className="font-light text-gray-900"
             style={{
               fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', // ~20px → ~28px
               lineHeight: 1.1,
@@ -42,7 +42,7 @@ function FloorInfoCard({ info, onClose }) {
         {/* Body */}
         <div className="text-gray-700 space-y-2">
           <p
-            className="font-semibold text-gray-900"
+            className="font-light text-gray-900"
             style={{ 
               fontSize: 'clamp(1rem, 2.2vw, 1.125rem)',
               fontFamily: 'Gotham-Office, sans-serif'
@@ -77,7 +77,7 @@ function FloorInfoCard({ info, onClose }) {
                 fontFamily: 'Gotham-Office, sans-serif'
               }}
             >
-              Available:{" "}
+              
               <span
                 className={
                   (info.availability?.toString().toLowerCase() === "true"
@@ -85,7 +85,9 @@ function FloorInfoCard({ info, onClose }) {
                     : "text-red-700") + " font-medium"
                 }
               >
-                {info.availability}
+                {info.availability?.toString().toLowerCase() === "true"
+                  ? "For Sale"
+                  : "Sold Out"}
               </span>
             </p>
           </div>

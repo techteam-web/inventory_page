@@ -122,23 +122,64 @@ export default function BuildingOverlay() {
     setTimeout(() => setUpdateStatus(''), 3000);
   };
 
-  // Floors: hover/click
+  // UPDATED: Smart hover - only on desktop
   const handleFloorMouseEnter = (floor, event) => {
-    setSelectedFloor(floor);
-    setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
-    // Keep hover subtle; do not force category color on floors
-    const isAvailable = floor.info.availability?.toLowerCase() === "true";
-    const hoverFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
-    event.target.style.fill = hoverFill;
-    
+    const isMobile = window.matchMedia('(hover: none)').matches;
+    if (!isMobile) {
+      setSelectedFloor(floor);
+      setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+      const isAvailable = floor.info.availability?.toLowerCase() === "true";
+      const hoverFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
+      event.target.style.fill = hoverFill;
+    }
   };
+
   const handleFloorMouseLeave = (floor, event) => {
-    setSelectedFloor(null);
-    event.target.style.fill = getFloorFillColor(floor);
+    const isMobile = window.matchMedia('(hover: none)').matches;
+    if (!isMobile) {
+      setSelectedFloor(null);
+      event.target.style.fill = getFloorFillColor(floor);
+    }
   };
+
+  // UPDATED: Smart click - mobile vs desktop
   const handleFloorClick = (floor, event) => {
-    const hasPlan = floor.info["has-floor-plan"];
-    if (hasPlan) setFloorPlanModal(floor);
+    const isMobile = window.matchMedia('(hover: none)').matches;
+    
+    if (isMobile) {
+      // Mobile: First tap shows info, second tap opens floor plan
+      if (selectedFloor?.id === floor.id) {
+        const hasPlan = floor.info["has-floor-plan"];
+        if (hasPlan) {
+          setFloorPlanModal(floor);
+          setSelectedFloor(null);
+        }
+      } else {
+        setSelectedFloor(floor);
+        setCardPosition({ 
+          x: window.innerWidth / 2 - 160, 
+          y: event.clientY - 100 
+        });
+        
+        const isAvailable = floor.info.availability?.toLowerCase() === "true";
+        const activeFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
+        event.target.style.fill = activeFill;
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+          if (selectedFloor?.id === floor.id) {
+            setSelectedFloor(null);
+            event.target.style.fill = getFloorFillColor(floor);
+          }
+        }, 3000);
+        
+        if ('vibrate' in navigator) navigator.vibrate(50);
+      }
+    } else {
+      // Desktop: Direct click opens floor plan
+      const hasPlan = floor.info["has-floor-plan"];
+      if (hasPlan) setFloorPlanModal(floor);
+    }
   };
 
   // Navbar selection
@@ -203,10 +244,7 @@ export default function BuildingOverlay() {
     return "rgba(0, 0, 0, 0.22)";
   };
 
-  // CATEGORY OVERLAYS: Option A behavior
-  // - Default: dim/neutral (no category color)
-  // - Hover: subtle highlight
-  // - Active: category color
+  // UPDATED: Smart category overlays - no hover on mobile
   const renderCategoryOverlays = () => {
     const keys = ['wardrobe', 'terrace', 'skyclub'];
     return keys.map(key => {
@@ -231,10 +269,19 @@ export default function BuildingOverlay() {
                 ? "drop-shadow(0 0 4px rgba(0,0,0,0.12))"
                 : "none"
           }}
-          onMouseEnter={() => setHoverHighlight(key)}
-          onMouseLeave={() => setHoverHighlight(prev => (prev === key ? null : prev))}
+          onMouseEnter={() => {
+            const isMobile = window.matchMedia('(hover: none)').matches;
+            if (!isMobile) setHoverHighlight(key);
+          }}
+          onMouseLeave={() => {
+            const isMobile = window.matchMedia('(hover: none)').matches;
+            if (!isMobile) setHoverHighlight(prev => (prev === key ? null : prev));
+          }}
           onClick={(e) => {
             e.stopPropagation();
+            const isMobile = window.matchMedia('(hover: none)').matches;
+            if (isMobile && 'vibrate' in navigator) navigator.vibrate(50);
+            
             setActiveHighlight(key);
             setHighlightPlanModal({
               id: key,
@@ -284,9 +331,18 @@ export default function BuildingOverlay() {
     );
   }
 
-  // UI
+  // UI - KEEPING ALL YOUR EXISTING POSITIONS
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#dedbd4]">
+      {/* Logo */}
+      <div className="fixed top-4 right-10 z-40">
+        <img 
+          src="/logo.svg" 
+          alt="Logo" 
+          className="w-16 h-16 sm:w-20 sm:h-20 md:w-30 md:h-30 object-contain"
+        />
+      </div>
+
       {/* Main Building Container */}
       <div className="relative w-full h-full flex items-center justify-center">
         <svg
@@ -347,6 +403,15 @@ export default function BuildingOverlay() {
               info={selectedFloor.info}
               onClose={() => setSelectedFloor(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Mobile hint - only shows on mobile when floor is selected */}
+      {selectedFloor && window.matchMedia('(hover: none)').matches && (
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-25">
+          <div className="bg-black/80 text-white px-3 py-1 rounded-lg text-sm backdrop-blur-sm">
+            Tap again to view floor plan
           </div>
         </div>
       )}
