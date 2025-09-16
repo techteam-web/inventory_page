@@ -95,6 +95,8 @@ export default function FloorPlanModal({ floor, highlight, onClose }) {
             src={images[currentImageIndex]}
             alt={`${titlePrefix} ${currentImageIndex + 1}`}
             className="max-w-full max-h-full object-contain"
+            loading="lazy"
+            onLoad={() => console.log(`Image loaded: ${images[currentImageIndex]}`)}
           />
 
           {/* Golden Level Label */}
