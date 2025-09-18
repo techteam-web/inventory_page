@@ -36,6 +36,7 @@ export default function BuildingOverlay() {
 
   // Hover state for category overlays
   const [hoverHighlight, setHoverHighlight] = useState(null);
+  const [lockedFloor, setLockedFloor] = useState(null);
 
   const svgRef = useRef(null);
   const socketRef = useRef(null);
@@ -118,18 +119,7 @@ export default function BuildingOverlay() {
     }
   };
 
-  const handleManualRefresh = async () => {
-    try {
-      setUpdateStatus('Refreshing...');
-      const response = await fetch("https://inventory-page-x73n.onrender.com/api/floors/refresh", { method: "POST" });
-      const result = await response.json();
-      setUpdateStatus(result.success ? `Refreshed! Notified ${result.clientsNotified} clients` : 'Refresh failed');
-    } catch (error) {
-      console.error("Manual refresh error:", error);
-      setUpdateStatus('Refresh failed');
-    }
-    setTimeout(() => setUpdateStatus(''), 3000);
-  };
+
 
   // Smart hover - only on desktop
   const handleFloorMouseEnter = (floor, event) => {
@@ -194,8 +184,11 @@ export default function BuildingOverlay() {
   // ✅ NEW: Handle opening comparison modal from FloorPlanModal
   const handleOpenComparison = (floor) => {
     setPreSelectedFloor(floor);
-    setFloorPlanModal(null);
+    setLockedFloor(floor);
     setShowFloorSelectionModal(true);
+    setTimeout(() => {
+    setFloorPlanModal(null);
+  }, 200);
   };
 
   // ✅ UPDATED: Removed compare mode from navbar selection
@@ -467,10 +460,12 @@ export default function BuildingOverlay() {
         onClose={() => {
           setShowFloorSelectionModal(false);
           setPreSelectedFloor(null); // ✅ Clear pre-selection on close
+          setLockedFloor(null); // Clear locked floor on close
         }}
         floors={floors}
         selectedFloorsForCompare={selectedFloorsForCompare}
         preSelectedFloor={preSelectedFloor} // ✅ NEW: Pass pre-selected floor
+        lockedFloor={lockedFloor}
         onFloorSelect={(floor) => {
           const isSelected = selectedFloorsForCompare.some(f => f.id === floor.id);
           if (isSelected) {
