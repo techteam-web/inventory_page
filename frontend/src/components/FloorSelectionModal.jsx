@@ -119,7 +119,7 @@ export default function FloorSelectionModal({ show, onClose, floors, selectedFlo
     
     // Selected floors
     if (isSelected) {
-      return getTypeColor(apartmentType, 0.7); // Darker when selected
+      return "rgba(208, 170, 45, 0.5)"; // Darker when selected
     }
     
     // Compare selection
