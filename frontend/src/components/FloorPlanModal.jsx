@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 
 /**
- * Reusable modal for both floor plans and highlight plans.
+ * Updated FloorPlanModal with comparison functionality
  * Props:
  * - floor: floor object with info["floor-plan-images"]
  * - highlight: { id, name, planImages: [] }
  * - onClose: () => void
+ * - onOpenComparison: (floor) => void  // ✅ NEW PROP
  */
-export default function FloorPlanModal({ floor, highlight, onClose }) {
+export default function FloorPlanModal({ floor, highlight, onClose, onOpenComparison }) {
   const modalRef = useRef(null);
   const overlayRef = useRef(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -38,6 +39,17 @@ export default function FloorPlanModal({ floor, highlight, onClose }) {
       opacity: 0,
       duration: 0.2,
       onComplete: () => onClose?.()
+    });
+    gsap.to(overlayRef.current, { opacity: 0, duration: 0.2 });
+  };
+
+  // ✅ NEW: Handle opening comparison modal
+  const handleOpenComparison = () => {
+    gsap.to(modalRef.current, {
+      scale: 0.95,
+      opacity: 0,
+      duration: 0.2,
+      onComplete: () => onOpenComparison?.(floor)
     });
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.2 });
   };
@@ -90,7 +102,7 @@ export default function FloorPlanModal({ floor, highlight, onClose }) {
         </button>
 
         {/* Main Image area */}
-        <div className="relative h-[85vh] flex items-center justify-center bg-gray-50">
+        <div className="relative h-[70vh] flex items-center justify-center bg-gray-50"> {/* ✅ Reduced height for button space */}
           <img
             src={images[currentImageIndex]}
             alt={`${titlePrefix} ${currentImageIndex + 1}`}
@@ -100,25 +112,23 @@ export default function FloorPlanModal({ floor, highlight, onClose }) {
           />
 
           {/* Golden Level Label */}
-         <div
-  className="
-    absolute top-4 md:top-6 left-1/2 -translate-x-1/2 z-20 select-none
-    text-transparent bg-clip-text
-    font-extrabold leading-tight
-    px-2 md:px-3
-  "
-  style={{
-    // Fluid, responsive size: min 18px, grows with viewport, max ~34px
-    fontSize: 'clamp(1.125rem, 2.5vw, 2.125rem)',
-    letterSpacing: '0.06em',
-    backgroundImage: 'linear-gradient(90deg, #D4AF37 0%, #EBD58A 50%, #D4AF37 100%)',
-    WebkitBackgroundClip: 'text',
-    backgroundClip: 'text'
-  }}
->
-  Level {currentImageIndex + 1}
-</div>
-
+          <div
+            className="
+              absolute top-4 md:top-6 left-1/2 -translate-x-1/2 z-20 select-none
+              text-transparent bg-clip-text
+              font-extrabold leading-tight
+              px-2 md:px-3
+            "
+            style={{
+              fontSize: 'clamp(1.125rem, 2.5vw, 2.125rem)',
+              letterSpacing: '0.06em',
+              backgroundImage: 'linear-gradient(90deg, #D4AF37 0%, #EBD58A 50%, #D4AF37 100%)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text'
+            }}
+          >
+            Level {currentImageIndex + 1}
+          </div>
 
           {/* Arrows */}
           {images.length > 1 && (
@@ -145,23 +155,49 @@ export default function FloorPlanModal({ floor, highlight, onClose }) {
           )}
         </div>
 
+        {/* ✅ NEW: Floor Details & Compare Button Section */}
+       
+
         {/* Dots */}
         {images.length > 1 && (
-          <div className="flex items-center justify-center space-x-3 py-6 bg-white">
-            {images.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentImageIndex(index)}
-                className={`transition-all duration-200 ${
-                  index === currentImageIndex 
-                    ? 'w-8 h-2 bg-yellow-500 rounded-full' 
-                    : 'w-2 h-2 bg-gray-300 hover:bg-gray-400 rounded-full'
-                }`}
-                aria-label={`Go to image ${index + 1}`}
-              />
-            ))}
-          </div>
+  <div className="py-4 bg-white border-t border-gray-100">
+    <div className="flex items-center justify-between px-4">
+      {/* Left spacer for balance */}
+      <div className="flex-1"></div>
+      
+      {/* Centered Dots */}
+      <div className="flex items-center justify-center space-x-3 flex-shrink-0">
+        {images.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentImageIndex(index)}
+            className={`transition-all duration-200 ${
+              index === currentImageIndex 
+                ? 'w-8 h-2 bg-yellow-500 rounded-full' 
+                : 'w-2 h-2 bg-gray-300 hover:bg-gray-400 rounded-full'
+            }`}
+            aria-label={`Go to image ${index + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Right-aligned Button */}
+      <div className="flex-1 flex justify-end">
+        {floor && !isHighlight && (
+          <button
+            onClick={handleOpenComparison}
+            className="bg-[#d0aa2d] text-white py-2 px-3 rounded-lg font-light hover:bg-[#b8941f] transition-colors cursor-pointer whitespace-nowrap"
+            style={{ fontFamily: "'Spectra', sans-serif", fontSize: '0.875rem' }}
+          >
+            <span className="hidden md:inline">Compare with Other Floors</span>
+            <span className="md:hidden text-xs">Compare</span>
+          </button>
         )}
+      </div>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );

@@ -4,7 +4,11 @@
   src: url("/src/assets/bodoni.ttf");
   font-weight: lighter;
 }
-
+@font-face {
+  font-family: "Spectra";
+  src: url("/src/assets/GT-Sectra-Light.ttf");
+  font-weight: bolder;
+}
 /* Add to your CSS file or Tailwind config */
 .drop-container::before{
     content: '';

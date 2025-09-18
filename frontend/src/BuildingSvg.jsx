@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 import FloorInfoCard from "./components/FloorInfoCard";
 import FloorPlanModal from "./components/FloorPlanModal";
 import Navbar from "./components/Navbar";
+import FloorSelectionModal from "./components/FloorSelectionModal";
 
 export default function BuildingOverlay() {
   const [floors, setFloors] = useState([]);
@@ -19,8 +20,16 @@ export default function BuildingOverlay() {
   const [showFloorPlans, setShowFloorPlans] = useState(false);
   const [floorPlanModal, setFloorPlanModal] = useState(null);
 
+  // ✅ NEW: Individual floor to comparison flow states
+  const [showFloorSelectionModal, setShowFloorSelectionModal] = useState(false);
+  const [preSelectedFloor, setPreSelectedFloor] = useState(null);
+
+  // Compare functionality states (keeping for backward compatibility)
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedFloorsForCompare, setSelectedFloorsForCompare] = useState([]);
+
   // Highlight modal (Option A)
-  const [highlightPlanModal, setHighlightPlanModal] = useState(null); // { id, name, planImages: [] }
+  const [highlightPlanModal, setHighlightPlanModal] = useState(null);
 
   // Filter/active state: 'wardrobe' | 'terrace' | 'skyclub' | 'floorPlan' | 'unit' | null
   const [activeHighlight, setActiveHighlight] = useState(null);
@@ -35,14 +44,14 @@ export default function BuildingOverlay() {
   const HIGHLIGHT_AREAS = {
     wardrobe: {
       name: "Wardrobe Areas",
-      activeFill: "rgba(139, 92, 246, 0.60)",  // purple
+      activeFill: "rgba(139, 92, 246, 0.60)",
       hoverFill: "rgba(139, 92, 246, 0.50)",
       d: "m 90.723317,145.66639 12.821743,-1.69155 c 0,0 -1.715,0.13584 0.017,0 1.73197,-0.13584 4.87331,0.0509 4.87331,0.0509 l 1.73197,0.20376 0.71317,0.0849 0.62827,0.1698 0.62826,0.22075 0.44149,0.18678 0.32262,0.1698 0.39054,0.28866 0.22074,0.23773 0.0679,0.1698 0.0679,0.27168 0.017,0.37357 0.017,6.77508 c 0,0 0.47544,-0.0849 -0.66223,-0.40752 -1.13767,-0.32263 -3.15831,-0.57733 -3.15831,-0.57733 l -1.17163,-0.11886 -0.96787,-0.034 -5.04311,0.017 -1.25653,0.0509 -0.98485,0.0679 -11.138989,1.20559 0.0849,-7.02979 z",
       planImages: ["/floor-plans/club1.webp", "/floor-plans/club2.webp"]
     },
     terrace: {
       name: "Parking / Terrace",
-      activeFill: "rgba(16, 185, 129, 0.60)", // green
+      activeFill: "rgba(16, 185, 129, 0.60)",
       hoverFill: "rgba(16, 185, 129, 0.50)",
       d: "m 89.378556,154.11918 -0.240136,32.22622 24.78202,0.19211 0.048,-32.99466 c 0,0 1.36877,0.69639 -0.1681,-0.048 -1.53687,-0.74442 -3.45796,-1.10462 -3.45796,-1.10462 l -3.26584,-0.21612 -4.03429,0.12006 -13.807805,1.29674 z",
       planImages: [
@@ -55,14 +64,14 @@ export default function BuildingOverlay() {
     },
     skyclub: {
       name: "Sky Club",
-      activeFill: "rgba(135, 206, 235, 0.60)", // blue
+      activeFill: "rgba(135, 206, 235, 0.60)",
       hoverFill: "rgba(135, 206, 235, 0.50)",
       d: "m 89.426583,37.749353 13.159447,-5.859315 c 0,0 -2.20925,0.480272 0,0 2.20925,-0.480271 3.74612,-0.288163 3.74612,-0.288163 0,0 -1.87306,-0.288163 0.14408,0.09605 2.01714,0.384217 3.07374,1.00857 3.07374,1.00857 0,0 -1.34476,-0.864489 0.14408,0.04803 1.48884,0.912516 3.65006,3.794146 3.65006,3.794146 L 113.152,36.020375 c 0,0 -0.76843,1.440815 0,0 0.76844,-1.440815 0.81647,-5.379043 0.81647,-5.379043 0,0 0.33619,1.200679 0,0 -0.3362,-1.200679 -0.96055,-2.737549 -0.96055,-2.737549 0,0 0.38422,-0.144081 -0.91251,-1.68095 -1.29674,-1.536869 -3.1698,-2.641494 -3.1698,-2.641494 l -1.777,-0.768435 -1.44082,-0.144081 -1.15265,0.09605 -0.91252,-0.04803 -0.48027,0.09605 -1.20068,0.528299 -11.862706,5.523124 c 0,0 0.240135,-0.624353 -0.720408,1.056598 -0.960543,1.680951 -0.09605,1.921086 -0.09605,1.921086 0,0 -1.056598,-0.576326 -0.192113,0.33619 0.864489,0.912516 1.536869,0.576326 1.440815,0.912516 -0.09605,0.336191 -0.720407,0.336191 -0.144077,1.440816 0.576326,1.104625 -0.816463,1.728978 -0.816463,1.728978",
       planImages: ["/floor-plans/skyclub.webp"]
     }
   };
 
-  // WebSocket & data
+  // WebSocket & data (unchanged)
   useEffect(() => {
     const socket = io('https://inventory-page-x73n.onrender.com', {
       transports: ['websocket', 'polling'],
@@ -122,10 +131,10 @@ export default function BuildingOverlay() {
     setTimeout(() => setUpdateStatus(''), 3000);
   };
 
-  // UPDATED: Smart hover - only on desktop
+  // Smart hover - only on desktop
   const handleFloorMouseEnter = (floor, event) => {
     const isMobile = window.matchMedia('(hover: none)').matches;
-    if (!isMobile) {
+    if (!isMobile && !compareMode) {
       setSelectedFloor(floor);
       setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
       const isAvailable = floor.info.availability?.toLowerCase() === "true";
@@ -136,13 +145,13 @@ export default function BuildingOverlay() {
 
   const handleFloorMouseLeave = (floor, event) => {
     const isMobile = window.matchMedia('(hover: none)').matches;
-    if (!isMobile) {
+    if (!isMobile && !compareMode) {
       setSelectedFloor(null);
       event.target.style.fill = getFloorFillColor(floor);
     }
   };
 
-  // UPDATED: Smart click - mobile vs desktop
+  // ✅ UPDATED: Direct to FloorPlanModal, removed old compare mode logic
   const handleFloorClick = (floor, event) => {
     const isMobile = window.matchMedia('(hover: none)').matches;
     
@@ -182,7 +191,14 @@ export default function BuildingOverlay() {
     }
   };
 
-  // Navbar selection
+  // ✅ NEW: Handle opening comparison modal from FloorPlanModal
+  const handleOpenComparison = (floor) => {
+    setPreSelectedFloor(floor);
+    setFloorPlanModal(null);
+    setShowFloorSelectionModal(true);
+  };
+
+  // ✅ UPDATED: Removed compare mode from navbar selection
   const handleNavbarSelect = (type, value) => {
     if (type === "unit") {
       const newSelectedUnit = value === selectedUnit ? null : value;
@@ -220,7 +236,7 @@ export default function BuildingOverlay() {
     }
   };
 
-  // Floors: keep neutral unless unit/floorPlan filters are active
+  // ✅ UPDATED: Simplified floor coloring (removed compare mode logic)
   const getFloorFillColor = (floor) => {
     const isAvailable = floor.info.availability?.toLowerCase() === "true";
 
@@ -244,14 +260,14 @@ export default function BuildingOverlay() {
     return "rgba(0, 0, 0, 0.22)";
   };
 
-  // UPDATED: Smart category overlays - no hover on mobile
+  // Smart category overlays - no hover on mobile
   const renderCategoryOverlays = () => {
     const keys = ['wardrobe', 'terrace', 'skyclub'];
     return keys.map(key => {
       const area = HIGHLIGHT_AREAS[key];
       if (!area) return null;
 
-      let fill = "rgba(0,0,0,0.10)"; // neutral when not active
+      let fill = "rgba(0,0,0,0.10)";
       if (activeHighlight === key) fill = area.activeFill;
       else if (hoverHighlight === key) fill = area.hoverFill;
 
@@ -294,7 +310,7 @@ export default function BuildingOverlay() {
     });
   };
 
-  // Loading
+  // Loading (unchanged)
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -308,7 +324,7 @@ export default function BuildingOverlay() {
     );
   }
 
-  // Error
+  // Error (unchanged)
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -366,7 +382,7 @@ export default function BuildingOverlay() {
             preserveAspectRatio="xMidYMid meet"
           />
 
-          {/* Category overlays: Option A behavior */}
+          {/* Category overlays */}
           <g transform="translate(86,0)">
             {renderCategoryOverlays()}
           </g>
@@ -384,9 +400,7 @@ export default function BuildingOverlay() {
                 onMouseLeave={(event) => handleFloorMouseLeave(floor, event)}
                 onClick={(event) => handleFloorClick(floor, event)}
                 vectorEffect="non-scaling-stroke"
-              >
-                
-              </path>
+              />
             ))}
           </g>
         </svg>
@@ -407,7 +421,7 @@ export default function BuildingOverlay() {
         </div>
       )}
 
-      {/* NEW: Mobile hint - only shows on mobile when floor is selected */}
+      {/* Mobile hint - only shows on mobile when floor is selected */}
       {selectedFloor && window.matchMedia('(hover: none)').matches && (
         <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-25">
           <div className="bg-black/80 text-white px-3 py-1 rounded-lg text-sm backdrop-blur-sm">
@@ -423,18 +437,20 @@ export default function BuildingOverlay() {
           selectedUnit={selectedUnit}
           showFloorPlans={showFloorPlans}
           activeHighlight={activeHighlight}
+          compareMode={false} // ✅ Always false since comparison is accessed from floor modal
         />
       </div>
 
-      {/* Floor Plan Modal (floors) */}
+      {/* ✅ Floor Plan Modal with comparison button */}
       {floorPlanModal && (
         <FloorPlanModal
           floor={floorPlanModal}
           onClose={() => setFloorPlanModal(null)}
+          onOpenComparison={handleOpenComparison} // ✅ NEW: Pass comparison handler
         />
       )}
 
-      {/* Highlight Plan Modal (Option A) */}
+      {/* Highlight Plan Modal */}
       {highlightPlanModal && (
         <FloorPlanModal
           highlight={highlightPlanModal}
@@ -444,6 +460,28 @@ export default function BuildingOverlay() {
           }}
         />
       )}
+
+      {/* ✅ Floor Selection Modal with pre-selection support */}
+      <FloorSelectionModal
+        show={showFloorSelectionModal}
+        onClose={() => {
+          setShowFloorSelectionModal(false);
+          setPreSelectedFloor(null); // ✅ Clear pre-selection on close
+        }}
+        floors={floors}
+        selectedFloorsForCompare={selectedFloorsForCompare}
+        preSelectedFloor={preSelectedFloor} // ✅ NEW: Pass pre-selected floor
+        onFloorSelect={(floor) => {
+          const isSelected = selectedFloorsForCompare.some(f => f.id === floor.id);
+          if (isSelected) {
+            setSelectedFloorsForCompare(prev => prev.filter(f => f.id !== floor.id));
+          } else {
+            if (selectedFloorsForCompare.length < 4) {
+              setSelectedFloorsForCompare(prev => [...prev, floor]);
+            }
+          }
+        }}
+      />
     </div>
   );
 }

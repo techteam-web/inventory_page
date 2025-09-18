@@ -3,20 +3,20 @@ import { gsap } from "gsap";
 import { createPortal } from "react-dom";
 import "../App.css";
 
-export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
+export default function Navbar({ onSelect, selectedUnit, showFloorPlans, activeHighlight, compareMode,selectedFloorsForCompare=[] }) {
   const containerRef = useRef(null);
   const buttonRefs = useRef({});
   const unitsRef = useRef(null);
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [showUnits, setShowUnits] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false); // Track animation state
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const floors = [
     { id: "1", label: "Exclusive Club" },
-    
     { id: "3", label: "Mansions" },
     { id: "4", label: "Parking Levels" },
-    {id:"5",label:"Sky-Club"}
+    { id: "5", label: "Sky-Club" }
+    
   ];
 
   const unitNumbers = ["Duplex", "Duplex-R"];
@@ -133,9 +133,8 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
     target.style.setProperty("--ly", `50%`);
   };
 
-  // Updated to handle smooth closing
   const closeUnits = () => {
-    if (isAnimating) return; // Prevent multiple animations
+    if (isAnimating) return;
     
     setIsAnimating(true);
     if (unitsRef.current) {
@@ -143,7 +142,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
         opacity: 0,
         scale: 0.8,
         y: 20,
-        duration: 0.6, // Slightly faster exit
+        duration: 0.6,
         ease: "power2.in",
         onComplete: () => {
           setShowUnits(false);
@@ -151,6 +150,20 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
         }
       });
     }
+  };
+
+  // NEW: Handle compare button click
+  const handleCompareClick = (e) => {
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      animateGradientFromPoint(x, y, 'compare');
+    }
+    onSelect("compare");
+    if (showUnits) closeUnits();
+    setSelectedFloor(null);
   };
 
   const handleFloorClick = (floorId, e) => {
@@ -164,7 +177,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
 
     if (floorId === "3") {
       if (showUnits) {
-        closeUnits(); // Use smooth close function
+        closeUnits();
         setSelectedFloor(null);
       } else {
         setShowUnits(true);
@@ -172,11 +185,11 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
       }
     } else if (floorId === "2") {
       onSelect("floorPlan", !showFloorPlans);
-      if (showUnits) closeUnits(); // Smooth close
+      if (showUnits) closeUnits();
       setSelectedFloor(showFloorPlans ? null : floorId);
     } else {
       onSelect("floor", floorId);
-      if (showUnits) closeUnits(); // Smooth close
+      if (showUnits) closeUnits();
       setSelectedFloor(selectedFloor === floorId ? null : floorId);
     }
   };
@@ -192,10 +205,8 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
     onSelect("unit", unit.toString());
   };
 
-  // Enhanced animation effect
   useEffect(() => {
     if (unitsRef.current && showUnits && !isAnimating) {
-      // Animate in
       gsap.fromTo(
         unitsRef.current,
         {
@@ -207,7 +218,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
           opacity: 1,
           scale: 1,
           y: 0,
-          duration: 0.8, // Slightly faster entry
+          duration: 0.8,
           ease: "power3.out",
         }
       );
@@ -215,7 +226,7 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
   }, [showUnits, isAnimating]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center" style={{ fontFamily: 'Gotham-Office, sans-serif' }} >
+    <div className="w-full h-full flex items-center justify-center" style={{ fontFamily: 'Gotham-Office, sans-serif' }}>
       <div
         ref={containerRef}
         onMouseMove={handleContainerMouseMove}
@@ -265,58 +276,83 @@ export default function Navbar({ onSelect, selectedUnit, showFloorPlans }) {
           </div>
         ))}
 
-        {/* Units Panel Portal - Always render when showUnits is true OR isAnimating */}
+        {/* NEW: Compare Button */}
+        
+
+        {/* Units Panel Portal */}
         {(showUnits || isAnimating) && createPortal(
-  <div
-    ref={unitsRef}
-    onMouseMove={handleUnitsMouseMove}
-    onMouseLeave={handleUnitsMouseLeave}
-    className="w-auto bottom-19 left-1/2 transform -translate-x-1/2 p-2 fixed z-[100000] flex gap-4 border-2 rounded-xl justify-center items-center bg-clip-padding backdrop-blur-3xl border-solid border-[rgb(187,174,99)] 
-    max-sm:bottom-7 max-sm:border-1 max-sm:rounded-md max-sm:gap-2 max-sm:p-1 
-    max-md:bottom-9 max-md:border-1 max-md:rounded-lg max-md:gap-3 max-md:p-1 
-    max-lg:bottom-13 max-lg:rounded-lg max-lg:gap-3 max-lg:p-1
-    max-xl:bottom-18 max-xl:p-2 max-xl:gap-4
-    max-2xl:bottom-17 max-2xl:p-2 max-2xl:gap-4"
-    style={{
-      "--lx": "50%",
-      "--ly": "50%",
-      "--lr": "120px",
-      backgroundImage:
-        "radial-gradient(var(--lr) var(--lr) at var(--lx) var(--ly), rgba(255,255,255,0.2), rgba(255,255,255,0) 55%)",
-      backgroundColor: "rgba(24,26,61,0.67)",
-      backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
-      minWidth: "200px", // Ensure minimum width for centering
-    }}
-  >
-    {unitNumbers.map((unit) => (
-      <button
-        key={unit}
-        ref={(el) => {
-          if (el) buttonRefs.current[`unit-${unit}`] = el;
-        }}
-        onMouseEnter={(e) => rippleMouseMove(e, e.currentTarget)}
-        onMouseLeave={(e) => rippleMouseLeave(e, e.currentTarget)}
-        onClick={(e) => handleUnitClick(unit, e)}
-        className="overflow-hidden uppercase text-shadow-lg text-white p-2 px-4 rounded-md transition-all duration-300 cursor-pointer relative text-center flex-shrink-0
-        max-sm:px-2 max-sm:p-1 max-sm:rounded-xs max-sm:text-[8px]  
-        max-md:px-3 max-md:p-1.5 max-md:rounded-xs max-md:text-[10px]   
-        max-lg:px-3 max-lg:p-1.5 max-lg:rounded-sm max-lg:text-[12px]
-        max-2xl:px-4 max-2xl:p-2 max-2xl:rounded-sm max-2xl:text-[13px]"
-        style={
-          selectedUnit === unit.toString()
-            ? {
-                backgroundColor: "rgba(255,208,117,0.4)",
-              }
-            : {}
-        }
-      >
-        {unit}
-      </button>
-    ))}
-  </div>,
-  document.body
-)}
+          <div
+            ref={unitsRef}
+            onMouseMove={handleUnitsMouseMove}
+            onMouseLeave={handleUnitsMouseLeave}
+            className="w-auto bottom-19 left-1/2 transform -translate-x-1/2 p-2 fixed z-[100000] flex gap-4 border-2 rounded-xl justify-center items-center bg-clip-padding backdrop-blur-3xl border-solid border-[rgb(187,174,99)] 
+            max-sm:bottom-7 max-sm:border-1 max-sm:rounded-md max-sm:gap-2 max-sm:p-1 
+            max-md:bottom-9 max-md:border-1 max-md:rounded-lg max-md:gap-3 max-md:p-1 
+            max-lg:bottom-13 max-lg:rounded-lg max-lg:gap-3 max-lg:p-1
+            max-xl:bottom-18 max-xl:p-2 max-xl:gap-4
+            max-2xl:bottom-17 max-2xl:p-2 max-2xl:gap-4"
+            style={{
+              "--lx": "50%",
+              "--ly": "50%",
+              "--lr": "120px",
+              backgroundImage:
+                "radial-gradient(var(--lr) var(--lr) at var(--lx) var(--ly), rgba(255,255,255,0.2), rgba(255,255,255,0) 55%)",
+              backgroundColor: "rgba(24,26,61,0.67)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              minWidth: "200px",
+            }}
+          >
+            {unitNumbers.map((unit) => (
+              <button
+                key={unit}
+                ref={(el) => {
+                  if (el) buttonRefs.current[`unit-${unit}`] = el;
+                }}
+                onMouseEnter={(e) => rippleMouseMove(e, e.currentTarget)}
+                onMouseLeave={(e) => rippleMouseLeave(e, e.currentTarget)}
+                onClick={(e) => handleUnitClick(unit, e)}
+                className="overflow-hidden uppercase text-shadow-lg text-white p-2 px-4 rounded-md transition-all duration-300 cursor-pointer relative text-center flex-shrink-0
+                max-sm:px-2 max-sm:p-1 max-sm:rounded-xs max-sm:text-[8px]  
+                max-md:px-3 max-md:p-1.5 max-md:rounded-xs max-md:text-[10px]   
+                max-lg:px-3 max-lg:p-1.5 max-lg:rounded-sm max-lg:text-[12px]
+                max-2xl:px-4 max-2xl:p-2 max-2xl:rounded-sm max-2xl:text-[13px]"
+                style={
+                  selectedUnit === unit.toString()
+                    ? {
+                        backgroundColor: "rgba(255,208,117,0.4)",
+                      }
+                    : {}
+                }
+              >
+                {unit}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
+        {/* <button
+  ref={(el) => {
+    if (el) buttonRefs.current['compare'] = el;
+  }}
+  onMouseEnter={(e) => rippleMouseMove(e, e.currentTarget)}
+  onMouseLeave={(e) => rippleMouseLeave(e, e.currentTarget)}
+  className={`dropbox-btn font-zap uppercase overflow-hidden text-shadow-lg p-1 px-3 rounded-2xl transition-all duration-300 cursor-pointer relative 
+    max-sm:px-1 max-sm:p-0.5 max-sm:text-[8px] 
+    max-md:px-2 max-md:p-1 max-md:text-[10px] 
+    max-lg:px-2 max-lg:p-1 max-lg:text-[12px]
+    max-xl:px-2 max-xl:p-1 max-xl:text-[12px]
+    max-2xl:px-2 max-2xl:p-1 max-2xl:text-[14px]`}
+  onClick={(e) => handleCompareClick(e)}
+  style={
+    compareMode
+      ? { backgroundColor: "#404566" }
+      : {}
+  }
+>
+  
+  Find Your Apartment {selectedFloorsForCompare.length > 0 && `(${selectedFloorsForCompare.length})`}
+</button> */}
       </div>
     </div>
   );
