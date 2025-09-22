@@ -18,7 +18,8 @@ server.timeout = 120000;          // 2 minutes request timeout
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+  : ['http://localhost:3000', 'http://localhost:5173', 'https://runwal-webpage.vercel.app', // Add your production frontend URL
+      'https://inventory-page-ashen.vercel.app' ];
 
 app.use(helmet());
 
