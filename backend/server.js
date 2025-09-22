@@ -9,23 +9,22 @@ const floorsRouter = require("./routes/floors");
 
 const app = express();
 const server = http.createServer(app);
-
 const PORT = process.env.PORT || 4000;
 
-// ✅ CORRECTED: Handle both ports 3000 and 5173 for React
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
+// Increase server timeouts
+server.keepAliveTimeout = 120000; // 2 minutes
+server.headersTimeout = 125000;   // Slightly higher than keepAlive
+server.timeout = 120000;          // 2 minutes request timeout
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:3000', 'http://localhost:5173'];
 
-// Security middleware
 app.use(helmet());
 
-// ✅ EXPRESS CORS CONFIGURATION
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -36,47 +35,65 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase payload limit
 
-// ✅ SOCKET.IO WITH MATCHING CORS CONFIGURATION
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  pingTimeout: 60000,    // 1 minute
+  pingInterval: 25000,   // 25 seconds
+  upgradeTimeout: 30000, // 30 seconds
+  allowEIO3: true
 });
 
-// ✅ PASS IO INSTANCE TO FLOORS ROUTER
 floorsRouter.setSocketIO(io);
 
-// Routes
+// Add request timeout middleware
+app.use((req, res, next) => {
+  req.setTimeout(115000); // 115 seconds
+  res.setTimeout(115000);
+  next();
+});
+
 app.use("/api/floors", floorsRouter);
 
-// Health check
+// Enhanced health check
 app.get("/health", (req, res) => {
-  res.json({ 
-    status: "OK", 
+  res.json({
+    status: "OK",
     connectedClients: io.engine.clientsCount,
     timestamp: new Date().toISOString(),
-    allowedOrigins: allowedOrigins
+    allowedOrigins: allowedOrigins,
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
   });
 });
 
-// ⚡ WebSocket Connection Handling
 io.on('connection', (socket) => {
   console.log(`🔌 Client connected: ${socket.id} (Total: ${io.engine.clientsCount})`);
   
-  socket.on('disconnect', () => {
-    console.log(`🔌 Client disconnected: ${socket.id} (Total: ${io.engine.clientsCount})`);
+  // Send connection confirmation with timeout
+  socket.emit('connected', {
+    message: 'WebSocket connected successfully',
+    timestamp: new Date().toISOString()
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`🔌 Client disconnected: ${socket.id} (Reason: ${reason}) (Total: ${io.engine.clientsCount})`);
+  });
+
+  socket.on('error', (error) => {
+    console.error(`🔌 Socket error for ${socket.id}:`, error);
   });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     error: "Something went wrong!",
     timestamp: new Date().toISOString()
   });
@@ -88,4 +105,5 @@ server.listen(PORT, () => {
   console.log(`🏢 Floors API: http://localhost:${PORT}/api/floors`);
   console.log(`⚡ WebSocket server ready for real-time updates`);
   console.log(`🌐 Allowed origins: ${allowedOrigins.join(', ')}`);
+  console.log(`⏱️  Request timeout: 115s, Keep-alive: 120s`);
 });

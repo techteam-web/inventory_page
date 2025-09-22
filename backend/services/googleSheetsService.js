@@ -1,4 +1,3 @@
-
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
@@ -8,21 +7,19 @@ class GoogleSheetsService {
     this.sheets = null;
     this.initialized = false;
     this.firstSheetName = null;
+    this.retryAttempts = 3;
+    this.timeoutMs = 25000; // 25 seconds timeout
   }
 
   async initialize() {
-     try {
+    try {
       if (this.initialized) return;
-
       console.log('🔧 Initializing Google Sheets service...');
-      
-      // ✅ Check both locations for the service account key
+
       let credentials;
-      
-      // First try the secret file location (production)
       const secretPath = '/etc/secrets/service-account-key.json';
       const localPath = path.resolve('./service-account-key.json');
-      
+
       if (fs.existsSync(secretPath)) {
         console.log('📄 Using secret file from Render');
         credentials = JSON.parse(fs.readFileSync(secretPath, 'utf8'));
@@ -40,11 +37,12 @@ class GoogleSheetsService {
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
       });
 
-      this.sheets = google.sheets({ 
-        version: 'v4', 
-        auth: auth
+      this.sheets = google.sheets({
+        version: 'v4',
+        auth: auth,
+        timeout: this.timeoutMs // Add timeout to sheets instance
       });
-      
+
       this.initialized = true;
       console.log('✅ Google Sheets service initialized successfully');
     } catch (error) {
@@ -60,10 +58,15 @@ class GoogleSheetsService {
       }
 
       await this.initialize();
-      
-      const response = await this.sheets.spreadsheets.get({
-        spreadsheetId: process.env.GOOGLE_SHEETS_ID,
-      });
+
+      const response = await Promise.race([
+        this.sheets.spreadsheets.get({
+          spreadsheetId: process.env.GOOGLE_SHEETS_ID,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Sheet metadata fetch timeout')), this.timeoutMs)
+        )
+      ]);
 
       const sheets = response.data.sheets;
       if (!sheets || sheets.length === 0) {
@@ -73,7 +76,6 @@ class GoogleSheetsService {
       this.firstSheetName = sheets[0].properties.title;
       console.log(`✅ Using sheet: "${this.firstSheetName}"`);
       return this.firstSheetName;
-
     } catch (error) {
       console.error('❌ Error getting sheet names:', error.message);
       throw error;
@@ -81,46 +83,68 @@ class GoogleSheetsService {
   }
 
   async getFloors() {
-    try {
-      await this.initialize();
-      const sheetName = await this.getFirstSheetName();
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        console.log(`📊 Fetching data attempt ${attempt}/${this.retryAttempts}`);
+        
+        await this.initialize();
+        const sheetName = await this.getFirstSheetName();
+        
+        console.log(`📊 Fetching data from sheet: "${sheetName}"`);
 
-      console.log(`📊 Fetching data from sheet: "${sheetName}"`);
+        // Use Promise.race for timeout
+        const response = await Promise.race([
+          this.sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.GOOGLE_SHEETS_ID,
+            range: sheetName,
+            valueRenderOption: 'UNFORMATTED_VALUE', // Faster processing
+            majorDimension: 'ROWS'
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Google Sheets API timeout')), this.timeoutMs)
+          )
+        ]);
 
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: process.env.GOOGLE_SHEETS_ID,
-        range: sheetName,
-      });
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+          throw new Error('No data found in spreadsheet');
+        }
 
-      const rows = response.data.values;
-      if (!rows || rows.length === 0) {
-        throw new Error('No data found in spreadsheet');
+        console.log(`✅ Retrieved ${rows.length - 1} floor records from Google Sheets`);
+        return this.transformData(rows);
+
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === this.retryAttempts) {
+          console.error('❌ All retry attempts failed');
+          throw new Error(`Failed to fetch data after ${this.retryAttempts} attempts: ${error.message}`);
+        }
+
+        // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      console.log(`✅ Retrieved ${rows.length - 1} floor records from Google Sheets`);
-      return this.transformData(rows);
-    } catch (error) {
-      console.error('❌ Error fetching from Google Sheets:', error.message);
-      throw error;
     }
   }
 
   transformData(rows) {
     const [headers, ...dataRows] = rows;
-
-    const parseFloorPlanImages = (floorPlanString) => {
-        if (!floorPlanString || floorPlanString.trim() === '') return [];
-        return floorPlanString.split(',').map(url=> url.trim()).filter(url => url.length >0);
-    }
     
+    const parseFloorPlanImages = (floorPlanString) => {
+      if (!floorPlanString || floorPlanString.trim() === '') return [];
+      return floorPlanString.split(',').map(url => url.trim()).filter(url => url.length > 0);
+    };
+
     return dataRows.map(row => {
       const rowData = {};
       headers.forEach((header, index) => {
         rowData[header] = row[index] || '';
       });
 
-      const floorPlanImages = parseFloorPlanImages(rowData['floor-plan']); 
-      
+      const floorPlanImages = parseFloorPlanImages(rowData['floor-plan']);
+
       return {
         id: rowData.id,
         d: rowData.d,
@@ -132,7 +156,7 @@ class GoogleSheetsService {
           availability: rowData.availability,
           "floor-plan": rowData['floor-plan'] || null,
           "floor-plan-images": floorPlanImages,
-          "has-floor-plan": floorPlanImages.length >0
+          "has-floor-plan": floorPlanImages.length > 0
         }
       };
     }).filter(floor => floor.id && floor.d);
