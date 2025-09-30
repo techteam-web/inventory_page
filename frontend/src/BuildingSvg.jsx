@@ -122,16 +122,28 @@ export default function BuildingOverlay() {
 
 
   // Smart hover - only on desktop
-  const handleFloorMouseEnter = (floor, event) => {
-    const isMobile = window.matchMedia('(hover: none)').matches;
-    if (!isMobile && !compareMode) {
-      setSelectedFloor(floor);
-      setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
-      const isAvailable = floor.info.availability?.toLowerCase() === "true";
-      const hoverFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
-      event.target.style.fill = hoverFill;
+ const handleFloorMouseEnter = (floor, event) => {
+  const isMobile = window.matchMedia('(hover: none)').matches;
+  if (!isMobile && !compareMode) {
+    setSelectedFloor(floor);
+    setCardPosition({ x: event.clientX + 10, y: event.clientY + 10 });
+    
+    // ✅ UPDATED: Handle different data types for availability
+    const availabilityValue = floor.info.availability;
+    let isAvailable = false;
+    
+    if (typeof availabilityValue === 'boolean') {
+      isAvailable = availabilityValue;
+    } else if (typeof availabilityValue === 'string') {
+      isAvailable = availabilityValue.toLowerCase() === "true";
+    } else if (availabilityValue != null) {
+      isAvailable = String(availabilityValue).toLowerCase() === "true";
     }
-  };
+    
+    const hoverFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
+    event.target.style.fill = hoverFill;
+  }
+};
 
   const handleFloorMouseLeave = (floor, event) => {
     const isMobile = window.matchMedia('(hover: none)').matches;
@@ -142,44 +154,56 @@ export default function BuildingOverlay() {
   };
 
   // ✅ UPDATED: Direct to FloorPlanModal, removed old compare mode logic
-  const handleFloorClick = (floor, event) => {
-    const isMobile = window.matchMedia('(hover: none)').matches;
-    
-    if (isMobile) {
-      // Mobile: First tap shows info, second tap opens floor plan
-      if (selectedFloor?.id === floor.id) {
-        const hasPlan = floor.info["has-floor-plan"];
-        if (hasPlan) {
-          setFloorPlanModal(floor);
-          setSelectedFloor(null);
-        }
-      } else {
-        setSelectedFloor(floor);
-        setCardPosition({ 
-          x: window.innerWidth / 2 - 160, 
-          y: event.clientY - 100 
-        });
-        
-        const isAvailable = floor.info.availability?.toLowerCase() === "true";
-        const activeFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
-        event.target.style.fill = activeFill;
-        
-        // Auto-hide after 3 seconds
-        setTimeout(() => {
-          if (selectedFloor?.id === floor.id) {
-            setSelectedFloor(null);
-            event.target.style.fill = getFloorFillColor(floor);
-          }
-        }, 3000);
-        
-        if ('vibrate' in navigator) navigator.vibrate(50);
+ const handleFloorClick = (floor, event) => {
+  const isMobile = window.matchMedia('(hover: none)').matches;
+  
+  if (isMobile) {
+    // Mobile: First tap shows info, second tap opens floor plan
+    if (selectedFloor?.id === floor.id) {
+      const hasPlan = floor.info["has-floor-plan"];
+      if (hasPlan) {
+        setFloorPlanModal(floor);
+        setSelectedFloor(null);
       }
     } else {
-      // Desktop: Direct click opens floor plan
-      const hasPlan = floor.info["has-floor-plan"];
-      if (hasPlan) setFloorPlanModal(floor);
+      setSelectedFloor(floor);
+      setCardPosition({ 
+        x: window.innerWidth / 2 - 160, 
+        y: event.clientY - 100 
+      });
+      
+      // ✅ UPDATED: Handle different data types for availability
+      const availabilityValue = floor.info.availability;
+      let isAvailable = false;
+      
+      if (typeof availabilityValue === 'boolean') {
+        isAvailable = availabilityValue;
+      } else if (typeof availabilityValue === 'string') {
+        isAvailable = availabilityValue.toLowerCase() === "true";
+      } else if (availabilityValue != null) {
+        isAvailable = String(availabilityValue).toLowerCase() === "true";
+      }
+      
+      const activeFill = isAvailable ? "rgba(208, 170, 45, 0.28)" : "rgba(255, 0, 0, 0.28)";
+      event.target.style.fill = activeFill;
+      
+      // Auto-hide after 3 seconds
+      setTimeout(() => {
+        if (selectedFloor?.id === floor.id) {
+          setSelectedFloor(null);
+          event.target.style.fill = getFloorFillColor(floor);
+        }
+      }, 3000);
+      
+      if ('vibrate' in navigator) navigator.vibrate(50);
     }
-  };
+  } else {
+    // Desktop: Direct click opens floor plan
+    const hasPlan = floor.info["has-floor-plan"];
+    if (hasPlan) setFloorPlanModal(floor);
+  }
+};
+
 
   // ✅ NEW: Handle opening comparison modal from FloorPlanModal
   const handleOpenComparison = (floor) => {
@@ -231,27 +255,38 @@ export default function BuildingOverlay() {
 
   // ✅ UPDATED: Simplified floor coloring (removed compare mode logic)
   const getFloorFillColor = (floor) => {
-    const isAvailable = floor.info.availability?.toLowerCase() === "true";
+  // Convert availability to string and then check
+  const availabilityValue = floor.info.availability;
+  let isAvailable = false;
+  
+  if (typeof availabilityValue === 'boolean') {
+    isAvailable = availabilityValue;
+  } else if (typeof availabilityValue === 'string') {
+    isAvailable = availabilityValue.toLowerCase() === "true";
+  } else if (availabilityValue != null) {
+    // Convert other types to string first
+    isAvailable = String(availabilityValue).toLowerCase() === "true";
+  }
 
-    // When category filters (wardrobe/terrace/skyclub) are active, keep floors neutral
-    if (activeHighlight === 'wardrobe' || activeHighlight === 'terrace' || activeHighlight === 'skyclub') {
-      return "rgba(0, 0, 0, 0.22)";
-    }
-
-    if (activeHighlight === 'floorPlan') {
-      const hasFloorPlan = floor.info["has-floor-plan"];
-      return hasFloorPlan && isAvailable ? "#d0aa2d92" : "rgba(0, 0, 0, 0.10)";
-    }
-
-    if (activeHighlight === 'unit' && selectedUnit) {
-      const matchesUnit = floor.info.bhk === selectedUnit;
-      if (matchesUnit && isAvailable) return "rgba(208, 170, 45, 0.28)";
-      if (matchesUnit && !isAvailable) return "rgba(255, 0, 0, 0.28)";
-      return "rgba(0, 0, 0, 0.10)";
-    }
-
+  // When category filters (wardrobe/terrace/skyclub) are active, keep floors neutral
+  if (activeHighlight === 'wardrobe' || activeHighlight === 'terrace' || activeHighlight === 'skyclub') {
     return "rgba(0, 0, 0, 0.22)";
-  };
+  }
+
+  if (activeHighlight === 'floorPlan') {
+    const hasFloorPlan = floor.info["has-floor-plan"];
+    return hasFloorPlan && isAvailable ? "#d0aa2d92" : "rgba(0, 0, 0, 0.10)";
+  }
+
+  if (activeHighlight === 'unit' && selectedUnit) {
+    const matchesUnit = floor.info.bhk === selectedUnit;
+    if (matchesUnit && isAvailable) return "rgba(208, 170, 45, 0.28)";
+    if (matchesUnit && !isAvailable) return "rgba(255, 0, 0, 0.28)";
+    return "rgba(0, 0, 0, 0.10)";
+  }
+
+  return "rgba(0, 0, 0, 0.22)";
+};
 
   // Smart category overlays - no hover on mobile
   const renderCategoryOverlays = () => {

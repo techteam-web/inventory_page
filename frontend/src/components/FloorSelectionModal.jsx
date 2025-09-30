@@ -11,6 +11,18 @@ export default function FloorSelectionModal({
   preSelectedFloor = null, 
   lockedFloor = null 
 }) {
+  // ✅ Helper function to handle availability conversion
+  const parseAvailability = (availability) => {
+    if (typeof availability === 'boolean') {
+      return availability;
+    } else if (typeof availability === 'string') {
+      return availability.toLowerCase() === "true";
+    } else if (availability != null) {
+      return String(availability).toLowerCase() === "true";
+    }
+    return false; // Default to false if undefined/null
+  };
+
   // Smart selection state - max 2 apartment types
   const [selectedFloorsByType, setSelectedFloorsByType] = useState({});
   const [activeHighlight, setActiveHighlight] = useState(null);
@@ -295,9 +307,6 @@ export default function FloorSelectionModal({
                 </div>
               </div>
 
-              {/* ✅ NEW: Locked Comparison Info */}
-              
-
               {hasSelections ? (
                 <div className="min-h-0">
                   {/* Floor Plans Grid - ✅ Responsive: vertical on small screens */}
@@ -330,28 +339,24 @@ export default function FloorSelectionModal({
                               </svg>
                             </button>
                           ) : (
-                            // ✅ NEW: Locked indicator
-                            <div className="">
-                             
-                            </div>
+                            <div className=""></div>
                           )}
 
                           {/* ✅ UPDATED: Floor Plan Header */}
                           <div className={`p-4 border-b ${isLockedFloor ? 'bg-amber-50 border-amber-200' : 'border-gray-200'} flex-shrink-0`}>
                             <div className="flex items-center gap-2">
                               <h4 className="font-bold text-[#d0aa2d] text-xl uppercase tracking-wide">{apartmentType}</h4>
-                              
                             </div>
                             <p className="text-sm text-gray-600 mt-1">Floor {floor.info.floorNumber}</p>
                             <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
                               <span>{floor.info.price}</span>
                               <span>{floor.info.area}</span>
                               <span className={`px-2 py-1 rounded-full ${
-                                floor.info.availability?.toLowerCase() === "true"
+                                parseAvailability(floor.info.availability)
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {floor.info.availability?.toLowerCase() === "true" ? 'Available' : 'Sold'}
+                                {parseAvailability(floor.info.availability) ? 'Available' : 'Sold'}
                               </span>
                             </div>
                           </div>
@@ -437,9 +442,6 @@ export default function FloorSelectionModal({
             <div className="h-full p-4">
               <div className="h-full flex flex-col">
                 
-                {/* ✅ NEW: Building Header with locked floor info */}
-                
-
                 {/* Building SVG */}
                 <div className="flex-1 flex items-center justify-center min-h-0">
                   <svg
